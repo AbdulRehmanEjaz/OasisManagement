@@ -393,7 +393,7 @@ export default function Workspace({
               <ShieldCheck size={19} />
               <div>
                 <strong>Connect your workspace</strong>
-                <span>Connect Supabase to enable field records and maps.</span>
+                <span>Configure D1 to enable field records and maps.</span>
               </div>
               {admin && (
                 <Button
@@ -902,7 +902,7 @@ export default function Workspace({
                     </h3>
                     <p>
                       {!configured
-                        ? "Configure Supabase using the setup instructions."
+                        ? "Configure D1 using the setup instructions."
                         : view === "facilities"
                           ? "Facilities registered and assigned by an administrator will appear here."
                           : view === "notifications"
@@ -1094,7 +1094,7 @@ export default function Workspace({
                   <span>
                     {configured
                       ? `${total} records · page ${page + 1}`
-                      : "Live records require Supabase configuration"}
+                      : "Live records require D1 configuration"}
                   </span>
                   <div>
                     <Button
@@ -1455,7 +1455,7 @@ function SettingsPanel({
         </div>
         <div className="settings-body">
           <div className="service-row">
-            <span>Supabase connection</span>
+            <span>Cloudflare D1</span>
             <span className={`status ${configured ? "good" : "bad"}`}>
               {configured ? "Configured" : "Setup required"}
             </span>
@@ -1466,19 +1466,18 @@ function SettingsPanel({
           </p>
           <ol className="setup-list">
             <li>
-              Create a Supabase project and run{" "}
-              <code>001_field_operations.sql</code> and{" "}
-              <code>002_panels_and_pins.sql</code>.
+              Create a Cloudflare D1 database and apply the migrations in{" "}
+              <code>migrations/</code>.
             </li>
             <li>
               Set the environment variables listed in <code>.env.example</code>.
             </li>
             <li>
-              Run <code>npm run bootstrap-panels</code> to provision panel
+              Open <code>/setup</code> once to create private administrator
               access.
             </li>
             <li>
-              Configure your Supabase Auth site URL and deploy to Vercel over
+              Deploy the Worker with its D1 binding over
               HTTPS.
             </li>
           </ol>

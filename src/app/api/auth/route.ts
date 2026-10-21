@@ -1,68 +1,37 @@
-import { isSameOrigin } from "@/lib/request-security";
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { cookies } from "next/headers";
-import { configured, database, privileged } from "@/lib/supabase";
-import { localPins, sessionCookie } from "@/lib/panels";
-import { productionPinLogin, supabaseSessionId } from "@/lib/pin-auth";
 import { z } from "zod";
+import { store, sessionCookie } from "@/lib/backend";
+import { isSameOrigin } from "@/lib/request-security";
+import { json, failure } from "@/lib/http";
+import { HttpError, pinSchema } from "@/lib/d1-store";
 export async function POST(req: NextRequest) {
   try {
-    if (!isSameOrigin(req))
-      return NextResponse.json({ error: "Invalid origin" }, { status: 403 });
-    const input = await req.json();
-    const jar = await cookies();
+    if (!isSameOrigin(req)) throw new HttpError("FORBIDDEN", 403);
+    const input = await req.json(),
+      db = await store(),
+      jar = await cookies();
     if (input.action === "logout") {
-      if (configured()) {
-        const db = await database();
-        const {
-          data: { session },
-        } = await db.auth.getSession();
-        if (session)
-          await privileged()
-            .from("pin_sessions")
-            .delete()
-            .eq("session_id", supabaseSessionId(session.access_token));
-        await db.auth.signOut();
-      } else {
-        const store = localPins();
-        try {
-          store.logout(jar.get(sessionCookie)?.value || "");
-        } finally {
-          store.close();
-        }
-      }
+      await db.logout(jar.get(sessionCookie)?.value || "");
       jar.delete(sessionCookie);
-      return NextResponse.json({ ok: true });
+      return json({ ok: true });
     }
     const v = z
-      .object({
-        action: z.literal("login"),
-        pin: z.string().regex(/^\d{3,12}$/),
-      })
+      .object({ action: z.literal("login"), pin: pinSchema })
       .parse(input);
-    if (configured()) await productionPinLogin(v.pin);
-    else {
-      const store = localPins();
-      try {
-        const token = store.login(v.pin);
-        jar.set(sessionCookie, token, {
-          httpOnly: true,
-          sameSite: "strict",
-          secure: process.env.NODE_ENV === "production",
-          path: "/",
-          maxAge: 28800,
-        });
-      } finally {
-        store.close();
-      }
-    }
-    return NextResponse.json({ ok: true });
-  } catch (e) {
-    const error =
-      e instanceof z.ZodError ? "Enter a valid PIN." : (e as Error).message;
-    return NextResponse.json(
-      { error },
-      { status: error.includes("Too many") ? 429 : 400 },
+    const token = await db.login(
+      v.pin,
+      req.headers.get("cf-connecting-ip") || "local",
     );
+    jar.set(sessionCookie, token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      path: "/",
+      maxAge: 28800,
+    });
+    return json({ ok: true });
+  } catch (e) {
+    return failure(e);
   }
 }

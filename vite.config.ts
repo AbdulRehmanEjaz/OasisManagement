@@ -15,8 +15,12 @@ export default defineConfig({
   ],
   resolve: {
     alias: {
-      "@/lib/photo-processing": fileURLToPath(new URL("./src/worker/photo-processing.ts", import.meta.url)),
-      "@/lib/local-pins": fileURLToPath(new URL("./src/worker/local-pins.ts", import.meta.url)),
+      "@/lib/photo-processing": fileURLToPath(
+        new URL("./src/worker/photo-processing.ts", import.meta.url),
+      ),
+      "@/lib/runtime": fileURLToPath(
+        new URL("./src/worker/runtime.ts", import.meta.url),
+      ),
     },
   },
 });

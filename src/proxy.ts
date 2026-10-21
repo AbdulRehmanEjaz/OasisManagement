@@ -1,34 +1,9 @@
-import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
-export async function proxy(request: NextRequest) {
-  let response = NextResponse.next({ request });
-  if (
-    !process.env.NEXT_PUBLIC_SUPABASE_URL ||
-    !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  )
-    return response;
-  const db = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-    {
-      cookies: {
-        getAll: () => request.cookies.getAll(),
-        setAll: (values) => {
-          values.forEach(({ name, value }) => request.cookies.set(name, value));
-          response = NextResponse.next({ request });
-          values.forEach(({ name, value, options }) =>
-            response.cookies.set(name, value, {
-              ...options,
-              httpOnly: true,
-              secure: process.env.NODE_ENV === "production",
-              sameSite: "strict",
-            }),
-          );
-        },
-      },
-    },
-  );
-  await db.auth.getUser();
+// Sessions are checked against D1 on every protected page and API request.
+export function proxy(request: NextRequest) {
+  const response = NextResponse.next({ request });
+  if (!request.nextUrl.pathname.startsWith("/_next/"))
+    response.headers.set("Cache-Control", "no-store");
   return response;
 }
 export const config = {

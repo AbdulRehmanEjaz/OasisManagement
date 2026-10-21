@@ -1,6 +1,6 @@
 import { randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
 
-// Keep this format identical to the existing Node/SQLite and Supabase hashes.
+// Retain the established salted hash format during the backend migration.
 export function hashPin(pin: string) {
   const salt = randomBytes(16).toString("hex");
   return salt + ":" + scryptSync(pin, salt, 32).toString("hex");

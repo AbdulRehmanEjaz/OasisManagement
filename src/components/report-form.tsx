@@ -231,7 +231,7 @@ export default function ReportForm({
     try {
       if (!enabled)
         throw new Error(
-          "Configure Supabase and image hosting before submitting.",
+          "Configure D1 and image hosting before submitting.",
         );
       if (kind !== "facility" && (!confirmed || !gps?.id))
         throw new Error("Capture and confirm your location first.");

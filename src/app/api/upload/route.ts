@@ -1,32 +1,28 @@
+import { NextRequest } from "next/server";
 import { isSameOrigin } from "@/lib/request-security";
-import { NextRequest, NextResponse } from "next/server";
-import { requireUser, privileged, rateLimit, configured } from "@/lib/supabase";
-import { requirePanel } from "@/lib/panels";
+import { requireUser } from "@/lib/backend";
 import { canSubmit } from "@/lib/access-policy";
 import { processPhoto } from "@/lib/photo-processing";
-export const runtime = "nodejs";
+import { HttpError } from "@/lib/d1-store";
+import { json, failure } from "@/lib/http";
 export async function POST(req: NextRequest) {
   try {
-    if (!isSameOrigin(req))
-      return NextResponse.json({ error: "Invalid origin" }, { status: 403 });
-    if (!configured()) {
-      const p = await requirePanel();
-      if (!canSubmit(p.role)) throw new Error("FORBIDDEN");
-      throw new Error("CONFIGURATION_REQUIRED");
-    }
-    const { db, user, profile } = await requireUser();
-    if (!canSubmit(profile.role)) throw new Error("FORBIDDEN");
-    await rateLimit(db, "image-upload", 12);
+    if (!isSameOrigin(req)) throw new HttpError("FORBIDDEN", 403);
+    const { db, profile } = await requireUser();
+    if (!canSubmit(profile.role)) throw new HttpError("FORBIDDEN", 403);
+    await db.limit("upload:" + profile.id, 12);
     if (!process.env.IMGBB_API_KEY)
-      throw new Error("Image hosting is not configured.");
-    const form = await req.formData();
-    const file = form.get("image");
+      throw new HttpError("Image hosting is not configured.", 503);
+    if (Number(req.headers.get("content-length")) > 16 * 1024 * 1024)
+      throw new HttpError("Choose an image smaller than 15 MB.");
+    const form = await req.formData(),
+      file = form.get("image");
     if (
       !(file instanceof File) ||
-      file.size > 15 * 1024 * 1024 ||
-      file.size === 0
+      file.size === 0 ||
+      file.size > 15 * 1024 * 1024
     )
-      throw new Error("Choose an image smaller than 15 MB.");
+      throw new HttpError("Choose an image smaller than 15 MB.");
     if (
       ![
         "image/jpeg",
@@ -36,13 +32,12 @@ export async function POST(req: NextRequest) {
         "image/heif",
       ].includes(file.type)
     )
-      throw new Error("Choose a JPEG, PNG, WebP, HEIC or HEIF image.");
-    const bytes = Buffer.from(await file.arrayBuffer());
+      throw new HttpError("Choose a JPEG, PNG, WebP, HEIC or HEIF image.");
     let buffer: Buffer;
     try {
-      buffer = await processPhoto(bytes);
+      buffer = await processPhoto(Buffer.from(await file.arrayBuffer()));
     } catch {
-      throw new Error(
+      throw new HttpError(
         "This image could not be decoded safely. For unsupported HEIC images, export as JPEG and retry.",
       );
     }
@@ -60,21 +55,18 @@ export async function POST(req: NextRequest) {
       !result.success ||
       !result.data?.url?.startsWith("https://i.ibb.co/")
     )
-      throw new Error("Image upload failed. Please retry.");
-    const { data, error } = await privileged()
-      .from("photo_uploads")
-      .insert({ user_id: user.id, url: result.data.url })
-      .select("id,url")
-      .single();
-    if (error) throw new Error("Could not register the upload. Please retry.");
-    return NextResponse.json(data);
+      throw new HttpError("Image upload failed. Please retry.");
+    const id = crypto.randomUUID();
+    await db.write(profile, "submit", [
+      db.stmt(
+        "INSERT INTO photo_uploads(id,user_id,url) VALUES(?,?,?)",
+        id,
+        profile.id,
+        result.data.url,
+      ),
+    ]);
+    return json({ id, url: result.data.url });
   } catch (e) {
-    const msg = (e as Error).message;
-    return NextResponse.json(
-      { error: msg },
-      {
-        status: msg === "UNAUTHORIZED" ? 401 : msg === "FORBIDDEN" ? 403 : 400,
-      },
-    );
+    return failure(e);
   }
 }
