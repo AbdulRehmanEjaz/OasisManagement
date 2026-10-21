@@ -1,7 +1,8 @@
 # D1 setup and private administrator provisioning
 
 No live D1 database is created or migrated by a build, test or deployment. The
-checked-in all-zero `database_id` is an intentional placeholder, not a live ID.
+checked-in `database_id` identifies the dedicated Oasis database in this account.
+For another Cloudflare account, use its own dedicated D1 database ID.
 No paid resources or plan changes are made by the setup code.
 
 ## 1. Create and bind D1
@@ -9,7 +10,7 @@ No paid resources or plan changes are made by the setup code.
 1. In your Cloudflare account, open **Storage & databases → D1 SQL Database**.
 2. Create `oasis-management-db`. Review your account's quota/terms before confirming;
    this code does not purchase a plan or provision it automatically.
-3. Copy its Database ID. Replace only the all-zero `database_id` in the `DB` entry
+3. Copy its Database ID. Set `database_id` in the `DB` entry
    in repository-root `wrangler.jsonc`. The binding name must stay `DB`.
 4. The deployed Worker must have this same D1 binding. Repository config is the
    source of truth: rebuild and deploy after changing it so a later deployment
@@ -79,7 +80,9 @@ npm run deploy
 ```
 
 Open `https://YOUR-WORKER-DOMAIN/setup` yourself. Enter the temporary setup token,
-your name, a **private PIN of 6–12 digits**, and its confirmation. Choose a PIN
+your name, a **private Admin PIN of 6–12 digits**, and its confirmation. Also enter
+different Viewer and Supervisor PINs of 6–12 digits. Setup creates all three
+accounts atomically. Choose PINs
 unrelated to public examples; never send it to the assistant. Inputs are masked,
 not persisted in browser storage, and transmitted only over your HTTPS origin.
 The server uses a random 16-byte salt and scrypt; only the salted hash and HMAC
@@ -91,8 +94,8 @@ success, delete `ADMIN_SETUP_TOKEN` from Worker settings. The setup endpoint the
 returns "disabled"; the already-created account remains valid. There is no
 public registration or default PIN fallback.
 
-Sign in with your private PIN at `/login`. In **Users & PINs**, create named Viewer
-and Supervisor accounts and choose their private PINs. Do not recreate the old
+Sign in with your private PIN at `/login`. In **Users & PINs**, manage the Viewer
+and Supervisor accounts and add named staff as needed. Do not recreate the old
 public sample PINs. PIN changes, activation changes and account removal revoke
 all sessions for that account. You cannot remove/deactivate your own account or
 remove the last active admin. Viewer exports never include the user directory,

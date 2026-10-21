@@ -175,7 +175,11 @@ export class D1Store {
         pin: z
           .string()
           .regex(/^\d{6,12}$/, "Use a private PIN of 6–12 digits."),
+        viewer_pin: z.string().regex(/^\d{6,12}$/, "Use 6–12 digits for the Viewer PIN.").optional(),
+        supervisor_pin: z.string().regex(/^\d{6,12}$/, "Use 6–12 digits for the Supervisor PIN.").optional(),
       })
+      .refine(p => !!p.viewer_pin === !!p.supervisor_pin, "Provide both Viewer and Supervisor PINs.")
+      .refine(p => new Set([p.pin,p.viewer_pin,p.supervisor_pin].filter(Boolean)).size === (p.viewer_pin ? 3 : 1), "Each panel must have a different PIN.")
       .parse(input);
     if (await this.one("SELECT id FROM users LIMIT 1"))
       throw new HttpError("Administrator setup is already complete.", 409);
@@ -191,6 +195,10 @@ export class D1Store {
         this.fingerprint(p.pin),
       ),
       this.audit(id, "users", id, "ADMIN_SETUP"),
+      ...([ ["viewer",p.viewer_pin], ["supervisor",p.supervisor_pin] ] as const).filter(([,pin])=>!!pin).flatMap(([role,pin])=>{
+        const accountId=crypto.randomUUID();
+        return [this.stmt("INSERT INTO users(id,full_name,role,pin_hash,pin_fingerprint) VALUES(?,?,?,?,?)",accountId,role==="viewer"?"Viewer":"Supervisor",role,hashPin(pin!),this.fingerprint(pin!)),this.audit(id,"users",accountId,"USER_CREATED",{role})];
+      }),
     ]);
   }
   async accounts(actor: Actor): Promise<Data[]> {

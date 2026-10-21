@@ -26,6 +26,8 @@ export default function Setup() {
         body: JSON.stringify({
           full_name: fields.get("name"),
           pin: fields.get("pin"),
+          viewer_pin: fields.get("viewer_pin"),
+          supervisor_pin: fields.get("supervisor_pin"),
         }),
       });
       const data = await response.json();
@@ -49,8 +51,8 @@ export default function Setup() {
         <span className="pin-lock">
           <LockKeyhole size={26} />
         </span>
-        <h1>Set up your administrator</h1>
-        <p>One-time setup. Enter your private PIN here, never in chat.</p>
+        <h1>Set up your three panels</h1>
+        <p>Choose a different private PIN of 6–12 digits for each panel.</p>
         <form onSubmit={submit} autoComplete="off">
           <label>
             Setup token
@@ -67,7 +69,7 @@ export default function Setup() {
             <input name="name" minLength={2} maxLength={100} required />
           </label>
           <label>
-            Private PIN
+            Admin PIN
             <input
               name="pin"
               type="password"
@@ -80,7 +82,7 @@ export default function Setup() {
             />
           </label>
           <label>
-            Confirm PIN
+            Confirm Admin PIN
             <input
               name="confirm"
               type="password"
@@ -90,13 +92,21 @@ export default function Setup() {
               autoComplete="new-password"
             />
           </label>
+          <label>
+            Viewer PIN
+            <input name="viewer_pin" type="password" inputMode="numeric" pattern="[0-9]{6,12}" minLength={6} maxLength={12} required autoComplete="new-password" />
+          </label>
+          <label>
+            Supervisor PIN
+            <input name="supervisor_pin" type="password" inputMode="numeric" pattern="[0-9]{6,12}" minLength={6} maxLength={12} required autoComplete="new-password" />
+          </label>
           {error && (
             <p className="notice error" role="alert">
               {error}
             </p>
           )}
           <Button disabled={busy}>
-            {busy ? "Creating…" : "Create administrator"}
+            {busy ? "Creating…" : "Create all three accounts"}
           </Button>
         </form>
       </section>

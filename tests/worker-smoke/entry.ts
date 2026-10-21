@@ -46,8 +46,9 @@ export default {
           ),
         "bootstrap rejects wrong token",
       );
+      await rejects(()=>db.bootstrap({full_name:"Administrator",role:"admin",pin:"654321",viewer_pin:"654321",supervisor_pin:"432109"},setup,setup),"bootstrap requires distinct panel PINs");
       await db.bootstrap(
-        { full_name: "Administrator", role: "admin", pin: "654321" },
+        { full_name: "Administrator", role: "admin", pin: "654321", viewer_pin:"543210", supervisor_pin:"432109" },
         setup,
         setup,
       );
@@ -76,18 +77,7 @@ export default {
         )),
         "session token stored only as hash",
       );
-      await db.changeAccount(admin, {
-        action: "user.create",
-        full_name: "Viewer",
-        role: "viewer",
-        pin: "543210",
-      });
-      await db.changeAccount(admin, {
-        action: "user.create",
-        full_name: "Supervisor",
-        role: "supervisor",
-        pin: "432109",
-      });
+      assert((await db.accounts(admin)).length===3,"one-time setup creates all three panels atomically");
       await db.changeAccount(admin, {
         action: "user.create",
         full_name: "Other Supervisor",
