@@ -1,0 +1,40 @@
+{
+  "name": "oasis-management",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --webpack --hostname 127.0.0.1",
+    "build": "next build --webpack",
+    "start": "next start --hostname 127.0.0.1",
+    "typecheck": "next typegen && tsc --noEmit",
+    "test": "tsx --test tests/*.test.ts",
+    "bootstrap-admin": "tsx scripts/bootstrap-admin.ts"
+  },
+  "dependencies": {
+    "next": "^16.0.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "@supabase/ssr": "^0.8.0",
+    "@supabase/supabase-js": "^2.80.0",
+    "zod": "^4.0.0",
+    "lucide-react": "^0.468.0",
+    "leaflet": "^1.9.4",
+    "react-leaflet": "^5.0.0",
+    "sharp": "^0.35.5",
+    "@radix-ui/react-slot": "^1.2.0",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "tailwind-merge": "^3.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.0",
+    "@types/node": "^24.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@types/leaflet": "^1.9.0",
+    "tailwindcss": "^4.0.0",
+    "@tailwindcss/postcss": "^4.0.0",
+    "tsx": "^4.20.0",
+    "@electric-sql/pglite": "^0.3.14"
+  }
+}
