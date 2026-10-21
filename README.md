@@ -81,8 +81,15 @@ npm test
 npm run build
 ```
 
+For Cloudflare Workers, follow [CLOUDFLARE.md](CLOUDFLARE.md). `npm run build`
+now produces a vinext Worker, and `npm run deploy` deploys its generated Wrangler
+configuration. `npm run build:next` retains the original Next.js Node build.
+
 Tests cover PIN hashing, persistence, throttling, expiry and revocation, the role matrix, GPS validation, upload ownership, atomic submissions, idempotency and the PostgreSQL migrations in PGlite. Database tests explicitly verify Viewer privacy, Supervisor submit-only restrictions and PIN-version session invalidation. Legacy migration-001 tests remain as migration regression coverage; migration 002 supersedes their old Supervisor read policies.
 
-Import the GitHub repository into Vercel as a Next.js project, configure the production environment, apply the migrations and provision panels before operational use. Build with `npm run build` and serve over HTTPS. The local SQLite access store is development-only and is not a cloud database substitute.
+For a Node/Vercel deployment, use `npm run build:next` as its build command and
+`npm start` to serve Next.js. Configure the production environment, apply the
+migrations and provision panels before operational use. Serve over HTTPS. The
+local SQLite access store is development-only and is not a cloud database substitute.
 
 Live Supabase sessions, ImgBB, Resend and Android/iPhone device GPS require external setup and have not been independently verified without those accounts. Local PIN logins and protected API role restrictions are checked separately from those integrations.

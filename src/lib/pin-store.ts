@@ -1,14 +1,14 @@
 import { DatabaseSync } from "node:sqlite";
 import {
-  scryptSync,
   randomBytes,
-  timingSafeEqual,
   createHash,
   randomUUID,
 } from "node:crypto";
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import type { Role } from "./access-policy";
+import { hashPin, checkPin } from "./pin-crypto";
+export { hashPin, checkPin } from "./pin-crypto";
 export type Account = {
   id: string;
   full_name: string;
@@ -18,17 +18,6 @@ export type Account = {
   version: number;
   deleted_at: string | null;
 };
-export function hashPin(pin: string) {
-  const salt = randomBytes(16).toString("hex");
-  return salt + ":" + scryptSync(pin, salt, 32).toString("hex");
-}
-export function checkPin(pin: string, hash: string) {
-  const [salt, digest] = hash.split(":");
-  if (!salt || !digest) return false;
-  const actual = scryptSync(pin, salt, 32);
-  const expected = Buffer.from(digest, "hex");
-  return actual.length === expected.length && timingSafeEqual(actual, expected);
-}
 export class PinStore {
   db: DatabaseSync;
   constructor(path: string) {

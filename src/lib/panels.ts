@@ -1,25 +1,9 @@
 import "server-only";
 import { cookies } from "next/headers";
-import { join } from "node:path";
 import { configured, requireUser } from "./supabase";
-import { PinStore } from "./pin-store";
+import { localPins } from "@/lib/local-pins";
+export { localPins } from "@/lib/local-pins";
 export const sessionCookie = "oasis-panel-session";
-export function localPins() {
-  if (process.env.NODE_ENV === "production")
-    throw new Error("Configure Supabase for production PIN login.");
-  const store = new PinStore(join(process.cwd(), ".data", "access.sqlite"));
-  try {
-    store.seed({
-      admin: process.env.INITIAL_ADMIN_PIN!,
-      viewer: process.env.INITIAL_VIEWER_PIN!,
-      supervisor: process.env.INITIAL_SUPERVISOR_PIN!,
-    });
-    return store;
-  } catch (e) {
-    store.close();
-    throw e;
-  }
-}
 export async function requirePanel(admin = false) {
   if (configured()) return (await requireUser(admin)).profile;
   const jar = await cookies();

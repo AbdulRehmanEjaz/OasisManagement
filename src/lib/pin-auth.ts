@@ -1,7 +1,7 @@
 import "server-only";
 import { createHmac } from "node:crypto";
 import { privileged, database } from "./supabase";
-import { checkPin } from "./pin-store";
+import { checkPin } from "./pin-crypto";
 export function pinFingerprint(pin: string) {
   if (
     !process.env.PIN_LOOKUP_SECRET ||

@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireUser, privileged, rateLimit, configured } from "@/lib/supabase";
 import { requirePanel } from "@/lib/panels";
 import { canSubmit } from "@/lib/access-policy";
-import sharp from "sharp";
+import { processPhoto } from "@/lib/photo-processing";
 export const runtime = "nodejs";
 export async function POST(req: NextRequest) {
   try {
@@ -40,18 +40,7 @@ export async function POST(req: NextRequest) {
     const bytes = Buffer.from(await file.arrayBuffer());
     let buffer: Buffer;
     try {
-      const image = sharp(bytes, {
-        limitInputPixels: 60000000,
-        failOn: "error",
-      });
-      const meta = await image.metadata();
-      if (!["jpeg", "png", "webp", "heif"].includes(meta.format || ""))
-        throw new Error();
-      buffer = await image
-        .rotate()
-        .resize(2000, 2000, { fit: "inside", withoutEnlargement: true })
-        .jpeg({ quality: 82 })
-        .toBuffer();
+      buffer = await processPhoto(bytes);
     } catch {
       throw new Error(
         "This image could not be decoded safely. For unsupported HEIC images, export as JPEG and retry.",

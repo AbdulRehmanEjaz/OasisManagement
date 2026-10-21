@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { requirePanel, localPins } from "@/lib/panels";
 import { configured, privileged } from "@/lib/supabase";
-import { hashPin } from "@/lib/pin-store";
+import { hashPin } from "@/lib/pin-crypto";
 import { pinFingerprint } from "@/lib/pin-auth";
 import { roles } from "@/lib/access-policy";
 const pin = z.string().regex(/^\d{3,12}$/, "Use 3–12 digits for the PIN.");
