@@ -52,7 +52,7 @@ export default function Setup() {
           <LockKeyhole size={26} />
         </span>
         <h1>Set up your three panels</h1>
-        <p>Choose a different private PIN of 6–12 digits for each panel.</p>
+        <p>Choose a different private PIN of exactly 3 digits for each panel.</p>
         <form onSubmit={submit} autoComplete="off">
           <label>
             Setup token
@@ -74,9 +74,9 @@ export default function Setup() {
               name="pin"
               type="password"
               inputMode="numeric"
-              pattern="[0-9]{6,12}"
-              minLength={6}
-              maxLength={12}
+              pattern="[0-9]{3}"
+              minLength={3}
+              maxLength={3}
               required
               autoComplete="new-password"
             />
@@ -87,18 +87,18 @@ export default function Setup() {
               name="confirm"
               type="password"
               inputMode="numeric"
-              pattern="[0-9]{6,12}"
+              pattern="[0-9]{3}"
               required
               autoComplete="new-password"
             />
           </label>
           <label>
             Viewer PIN
-            <input name="viewer_pin" type="password" inputMode="numeric" pattern="[0-9]{6,12}" minLength={6} maxLength={12} required autoComplete="new-password" />
+            <input name="viewer_pin" type="password" inputMode="numeric" pattern="[0-9]{3}" minLength={3} maxLength={3} required autoComplete="new-password" />
           </label>
           <label>
             Supervisor PIN
-            <input name="supervisor_pin" type="password" inputMode="numeric" pattern="[0-9]{6,12}" minLength={6} maxLength={12} required autoComplete="new-password" />
+            <input name="supervisor_pin" type="password" inputMode="numeric" pattern="[0-9]{3}" minLength={3} maxLength={3} required autoComplete="new-password" />
           </label>
           {error && (
             <p className="notice error" role="alert">

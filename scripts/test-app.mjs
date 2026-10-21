@@ -67,27 +67,27 @@ try {
   check(r.status === 401, "users route requires authentication");
   r = await request(
     "/api/setup",
-    { full_name: "Fixture administrator", pin: "987654" },
+    { full_name: "Fixture administrator", pin: "987" },
     "",
     { "x-setup-token": "wrong" },
   );
   check(r.status === 403, "setup endpoint checks private token");
   r = await request(
     "/api/setup",
-    { full_name: "Fixture administrator", pin: "987654" },
+    { full_name: "Fixture administrator", pin: "987" },
     "",
     { "x-setup-token": setupToken },
   );
   check(r.status === 200, "one-time administrator setup through HTTP");
-  r = await request("/api/setup", { full_name: "Second", pin: "123456" }, "", {
+  r = await request("/api/setup", { full_name: "Second", pin: "123" }, "", {
     "x-setup-token": setupToken,
   });
   check(r.status === 409, "setup endpoint closes after initial account");
-  r = await request("/api/auth", { action: "login", pin: "987654" }, "", {
+  r = await request("/api/auth", { action: "login", pin: "987" }, "", {
     origin: "https://attacker.invalid",
   });
   check(r.status === 403, "auth route rejects cross-origin POST");
-  r = await request("/api/auth", { action: "login", pin: "987654" });
+  r = await request("/api/auth", { action: "login", pin: "987" });
   const header = r.headers.get("set-cookie") || "",
     adminCookie = header.split(";")[0];
   check(
@@ -117,8 +117,8 @@ try {
     "admin user directory hides credentials",
   );
   for (const [role, pin] of [
-    ["viewer", "876543"],
-    ["supervisor", "765432"],
+    ["viewer", "876"],
+    ["supervisor", "765"],
   ]) {
     r = await request(
       "/api/access",
@@ -127,7 +127,7 @@ try {
     );
     check(r.status === 200, "admin creates " + role);
   }
-  r = await request("/api/auth", { action: "login", pin: "876543" });
+  r = await request("/api/auth", { action: "login", pin: "876" });
   const viewerCookie = (r.headers.get("set-cookie") || "").split(";")[0];
   check(r.status === 200, "PIN-only viewer login");
   r = await request("/api/access", null, viewerCookie);
@@ -142,7 +142,7 @@ try {
   check(r.status === 403, "viewer cannot upload through HTTP");
   r = await request("/api/operations?type=waste&map=1", null, viewerCookie);
   check(r.status === 200, "viewer map query allowed");
-  r = await request("/api/auth", { action: "login", pin: "765432" });
+  r = await request("/api/auth", { action: "login", pin: "765" });
   const supervisorCookie = (r.headers.get("set-cookie") || "").split(";")[0];
   check(r.status === 200, "PIN-only supervisor login");
   r = await request("/api/operations?type=waste", null, supervisorCookie);
@@ -157,7 +157,7 @@ try {
   const viewer = (await r.json()).data.find((u) => u.role === "viewer");
   r = await request(
     "/api/access",
-    { action: "user.pin", id: viewer.id, pin: "654321" },
+    { action: "user.pin", id: viewer.id, pin: "654" },
     adminCookie,
   );
   check(r.status === 200, "admin resets PIN through HTTP");

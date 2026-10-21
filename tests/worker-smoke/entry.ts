@@ -37,25 +37,27 @@ export default {
         "isolated-test-secret-not-a-production-secret",
       );
       const setup = "isolated-bootstrap-token-not-a-production-secret";
+      await rejects(()=>db.bootstrap({full_name:"Administrator",role:"admin",pin:"12"},setup,setup),"setup rejects fewer than three digits");
+      await rejects(()=>db.bootstrap({full_name:"Administrator",role:"admin",pin:"1234"},setup,setup),"setup rejects more than three digits");
       await rejects(
         () =>
           db.bootstrap(
-            { full_name: "Administrator", role: "admin", pin: "654321" },
+            { full_name: "Administrator", role: "admin", pin: "071" },
             "wrong",
             setup,
           ),
         "bootstrap rejects wrong token",
       );
-      await rejects(()=>db.bootstrap({full_name:"Administrator",role:"admin",pin:"654321",viewer_pin:"654321",supervisor_pin:"432109"},setup,setup),"bootstrap requires distinct panel PINs");
+      await rejects(()=>db.bootstrap({full_name:"Administrator",role:"admin",pin:"071",viewer_pin:"071",supervisor_pin:"063"},setup,setup),"bootstrap requires distinct panel PINs");
       await db.bootstrap(
-        { full_name: "Administrator", role: "admin", pin: "654321", viewer_pin:"543210", supervisor_pin:"432109" },
+        { full_name: "Administrator", role: "admin", pin: "071", viewer_pin:"082", supervisor_pin:"063" },
         setup,
         setup,
       );
       await rejects(
         () =>
           db.bootstrap(
-            { full_name: "Duplicate", role: "admin", pin: "987654" },
+            { full_name: "Duplicate", role: "admin", pin: "987" },
             setup,
             setup,
           ),
@@ -68,7 +70,7 @@ export default {
         ),
         "Node-compatible salted scrypt",
       );
-      const adminToken = await db.login("654321", "admin-fixture"),
+      const adminToken = await db.login("071", "admin-fixture"),
         admin = await db.session(adminToken);
       assert(
         !(await db.one(
@@ -82,22 +84,22 @@ export default {
         action: "user.create",
         full_name: "Other Supervisor",
         role: "supervisor",
-        pin: "321098",
+        pin: "054",
       });
       const viewer = await db.session(
-        await db.login("543210", "viewer-fixture"),
+        await db.login("082", "viewer-fixture"),
       );
       const supervisor = await db.session(
-        await db.login("432109", "supervisor-fixture"),
+        await db.login("063", "supervisor-fixture"),
       );
-      const other = await db.session(await db.login("321098", "other-fixture"));
+      const other = await db.session(await db.login("054", "other-fixture"));
       await rejects(
         () =>
           db.changeAccount(viewer, {
             action: "user.create",
             full_name: "Bad",
             role: "admin",
-            pin: "111111",
+            pin: "111",
           }),
         "viewer cannot manage users",
       );
@@ -126,7 +128,7 @@ export default {
             action: "user.create",
             full_name: "Duplicate PIN",
             role: "viewer",
-            pin: "543210",
+            pin: "082",
           }),
         "PINs must be unique",
       );
@@ -342,17 +344,17 @@ export default {
       assert(summary.waste===1&&summary.inspections===1&&summary.facilities===0,"dashboard summaries count both modules and active facilities");
       await deleteRecord(db,admin,{type:"waste",id:report.id});
       assert(!await db.one("SELECT id FROM reports WHERE id=?",report.id)&&!await db.one("SELECT id FROM record_photos WHERE report_id=?",report.id),"administrator deletion cascades report photo associations");
-      const oldToken = await db.login("543210", "viewer-reset-fixture");
+      const oldToken = await db.login("082", "viewer-reset-fixture");
       await db.changeAccount(admin, {
         action: "user.pin",
         id: viewer.id,
-        pin: "765432",
+        pin: "045",
       });
       await rejects(
         () => db.session(oldToken),
         "PIN reset revokes existing sessions",
       );
-      const newToken = await db.login("765432", "viewer-new-fixture");
+      const newToken = await db.login("045", "viewer-new-fixture");
       await db.changeAccount(admin, {
         action: "user.toggle",
         id: viewer.id,
@@ -363,25 +365,25 @@ export default {
         "deactivation revokes sessions",
       );
       await rejects(
-        () => db.login("765432", "disabled-fixture"),
+        () => db.login("045", "disabled-fixture"),
         "deactivated user cannot log in",
       );
       for (let i = 0; i < 5; i++)
         await rejects(
-          () => db.login("999999", "rate-fixture"),
+          () => db.login("999", "rate-fixture"),
           "invalid login rejected",
         );
       let limited = false;
       try {
-        await db.login("654321", "rate-fixture");
+        await db.login("071", "rate-fixture");
       } catch (e) {
         limited = (e as { status?: number }).status === 429;
       }
       assert(limited, "login rate limiting enforced");
-      const logoutToken = await db.login("654321", "logout-fixture");
+      const logoutToken = await db.login("071", "logout-fixture");
       await db.logout(logoutToken);
       await rejects(() => db.session(logoutToken), "logout revokes token");
-      const expiry = await db.login("654321", "expiry-fixture");
+      const expiry = await db.login("071", "expiry-fixture");
       await rejects(
         () => db.session(expiry, Date.now() + 9 * 3600000),
         "session expiry enforced",

@@ -30,7 +30,7 @@ export class HttpError extends Error {
 }
 export const pinSchema = z
   .string()
-  .regex(/^\d{3,12}$/, "Use 3–12 digits for the PIN.");
+  .regex(/^\d{3}$/, "Use exactly 3 digits for the PIN.");
 export const accountSchema = z.object({
   full_name: z.string().trim().min(2).max(100),
   role: z.enum(["admin", "viewer", "supervisor"]),
@@ -174,9 +174,9 @@ export class D1Store {
         role: z.literal("admin"),
         pin: z
           .string()
-          .regex(/^\d{6,12}$/, "Use a private PIN of 6–12 digits."),
-        viewer_pin: z.string().regex(/^\d{6,12}$/, "Use 6–12 digits for the Viewer PIN.").optional(),
-        supervisor_pin: z.string().regex(/^\d{6,12}$/, "Use 6–12 digits for the Supervisor PIN.").optional(),
+          .regex(/^\d{3}$/, "Use a private PIN of exactly 3 digits."),
+        viewer_pin: z.string().regex(/^\d{3}$/, "Use exactly 3 digits for the Viewer PIN.").optional(),
+        supervisor_pin: z.string().regex(/^\d{3}$/, "Use exactly 3 digits for the Supervisor PIN.").optional(),
       })
       .refine(p => !!p.viewer_pin === !!p.supervisor_pin, "Provide both Viewer and Supervisor PINs.")
       .refine(p => new Set([p.pin,p.viewer_pin,p.supervisor_pin].filter(Boolean)).size === (p.viewer_pin ? 3 : 1), "Each panel must have a different PIN.")

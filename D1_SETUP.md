@@ -80,8 +80,8 @@ npm run deploy
 ```
 
 Open `https://YOUR-WORKER-DOMAIN/setup` yourself. Enter the temporary setup token,
-your name, a **private Admin PIN of 6–12 digits**, and its confirmation. Also enter
-different Viewer and Supervisor PINs of 6–12 digits. Setup creates all three
+your name, a **private Admin PIN of 3 digits**, and its confirmation. Also enter
+different Viewer and Supervisor PINs of 3 digits. Setup creates all three
 accounts atomically. Choose PINs
 unrelated to public examples; never send it to the assistant. Inputs are masked,
 not persisted in browser storage, and transmitted only over your HTTPS origin.

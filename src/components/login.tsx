@@ -48,9 +48,9 @@ export default function Login() {
             className="pin-input"
             type="password"
             inputMode="numeric"
-            pattern="[0-9]{3,12}"
+            pattern="[0-9]{3}"
             minLength={3}
-            maxLength={12}
+            maxLength={3}
             autoComplete="off"
             required
             disabled={!ready || busy}
