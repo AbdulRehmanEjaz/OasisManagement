@@ -12,11 +12,8 @@ import {
   LogOut,
   Plus,
   ArrowUpRight,
-  ArrowRight,
   Search,
-  ChevronDown,
   MapPin,
-  Camera,
   Check,
   FileText,
   SlidersHorizontal,
@@ -25,10 +22,7 @@ import {
   Eye,
   Map,
   Table2,
-  Navigation,
   ShieldCheck,
-  Clock3,
-  Activity,
   RefreshCw,
   Menu,
   X,
@@ -71,51 +65,6 @@ const icons = {
   users: Users,
   settings: Settings,
 };
-function Botanical() {
-  return (
-    <svg
-      className="botanical"
-      viewBox="0 0 260 240"
-      fill="none"
-      aria-hidden="true"
-    >
-      <path
-        d="M125 233C120 172 143 119 192 58"
-        stroke="currentColor"
-        strokeWidth="2"
-      />
-      <path
-        d="M155 122C157 74 191 32 235 25C230 71 200 112 155 122Z"
-        fill="currentColor"
-        fillOpacity=".12"
-        stroke="currentColor"
-        strokeWidth="1.5"
-      />
-      <path
-        d="M139 168C96 161 66 128 59 92C104 94 135 119 139 168Z"
-        fill="currentColor"
-        fillOpacity=".16"
-        stroke="currentColor"
-        strokeWidth="1.5"
-      />
-      <path
-        d="M127 204C142 157 173 143 215 146C197 183 169 203 127 204Z"
-        fill="currentColor"
-        fillOpacity=".24"
-        stroke="currentColor"
-        strokeWidth="1.5"
-      />
-      <path
-        d="M155 121L215 48M140 168L79 111M128 203L194 159"
-        stroke="currentColor"
-        strokeOpacity=".6"
-      />
-      <circle cx="55" cy="43" r="4" fill="currentColor" />
-      <circle cx="232" cy="207" r="3" fill="currentColor" />
-      <path d="M31 185h18M40 176v18" stroke="currentColor" strokeWidth="1.5" />
-    </svg>
-  );
-}
 export default function Workspace({
   profile,
   configured,
@@ -282,7 +231,6 @@ export default function Workspace({
     setPhotos({ urls, index });
   const count = (key: string) =>
     configured && overview ? (overview[key] ?? "—") : "—";
-  const firstName = profile?.full_name.split(" ")[0];
   const navs: View[] = [
     "dashboard",
     "waste",
@@ -302,13 +250,11 @@ export default function Workspace({
           <strong>
             oasis<span>↗</span>
           </strong>
-          <small>FIELD OPERATIONS</small>
         </button>
         <div className="top-tools">
           <div className="workspace-label">
             <span className="online-dot" />
             Operations workspace
-            <ChevronDown size={16} />
           </div>
           <div className="top-divider" />
           <span className="top-date">
@@ -332,9 +278,11 @@ export default function Workspace({
                 <Bell size={20} />
               </Button>
             )}
-            <span
+            <button
               className="avatar"
               title={profile?.full_name || "Setup required"}
+              aria-label="Profile settings"
+              onClick={() => navigate("settings")}
             >
               {profile ? (
                 profile.full_name
@@ -345,17 +293,13 @@ export default function Workspace({
               ) : (
                 <Leaf size={20} />
               )}
-            </span>
-            <div className="user-label">
-              <strong>{profile?.full_name || "Your workspace"}</strong>
-              <small>
-                {profile
-                  ? admin
-                    ? "Administrator"
-                    : "Field supervisor"
-                  : "Configuration required"}
-              </small>
-            </div>
+            </button>
+            {profile && (
+              <div className="user-label">
+                <strong>{profile.full_name}</strong>
+                <small>{admin ? "Administrator" : "Field supervisor"}</small>
+              </div>
+            )}
             <Button
               className="menu-toggle"
               variant="ghost"
@@ -371,7 +315,6 @@ export default function Workspace({
       <div className="app-grid">
         <aside className={`sidebar ${menu ? "sidebar-open" : ""}`}>
           <div className="sidebar-main">
-            <span className="nav-heading">WORKSPACE</span>
             <nav>
               {navs.map((v) => {
                 const Icon = icons[v as keyof typeof icons] || Building2;
@@ -399,29 +342,7 @@ export default function Workspace({
                 );
               })}
             </nav>
-            <div className="sidebar-note">
-              <span className="tiny-icon">
-                <Navigation size={19} />
-              </span>
-              <h3>
-                Every detail.
-                <br />
-                Verified in the field.
-              </h3>
-              <p>Photo evidence and confirmed GPS, together in every report.</p>
-              <span className="pill">
-                <ShieldCheck size={13} />
-                Built for the field
-              </span>
-            </div>
             <div className="sidebar-bottom">
-              <div className="sidebar-site">
-                <span className="online-dot" />
-                <div>
-                  <strong>Oasis management</strong>
-                  <small>One connected workspace</small>
-                </div>
-              </div>
               {profile && (
                 <button onClick={logout}>
                   <LogOut size={18} />
@@ -431,66 +352,44 @@ export default function Workspace({
               )}
             </div>
           </div>
-          <p className="sidebar-caption">
-            FIELD OPERATIONS SYSTEM <span>v1.0</span>
-          </p>
         </aside>
         <section className="main-content">
-          {!configured && (
+          {!configured && view !== "settings" && (
             <div className="setup-banner">
               <ShieldCheck size={19} />
               <div>
-                <strong>Your workspace is ready for configuration.</strong>
-                <span>
-                  Connect Supabase to enable secure login and live records. No
-                  sample data is displayed.
-                </span>
+                <strong>Connect your workspace</strong>
+                <span>Connect Supabase to enable login and reporting.</span>
               </div>
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => navigate("settings")}
               >
-                View setup
+                Configure
                 <ArrowUpRight size={15} />
               </Button>
             </div>
           )}
           <div className="page-heading">
             <div>
-              <span className="eyebrow">
-                {view === "dashboard"
-                  ? "A CLEARER VIEW OF YOUR OPERATIONS"
-                  : view === "waste"
-                    ? "COSA · AGRICULTURAL WASTE"
-                    : view === "facilities" || view === "inspections"
-                      ? "OFT · SITE FACILITIES"
-                      : "YOUR CONNECTED WORKSPACE"}
-              </span>
               <h1>
-                {view === "dashboard"
-                  ? firstName
-                    ? `Hello, ${firstName}.`
-                    : "Your field. In focus."
-                  : labels[view]}
-                <span className="heading-dot">
-                  {view === "dashboard" ? "•" : ""}
-                </span>
+                {view === "dashboard" ? "Field operations" : labels[view]}
               </h1>
               <p>
                 {view === "dashboard"
-                  ? "A little clarity for everything happening on the ground."
+                  ? "Waste reports and facility inspections, in one place."
                   : view === "waste"
-                    ? "Track agricultural waste, from the first photo to the final report."
+                    ? "Submit, review, and manage waste reports."
                     : view === "facilities"
-                      ? "Keep your facilities visible, inspected, and working well."
+                      ? "Manage facilities and their condition."
                       : view === "inspections"
-                        ? "A complete history of your on-site observations."
+                        ? "Review facility inspection history."
                         : view === "notifications"
-                          ? "In-app updates and manager email delivery, tracked separately."
+                          ? "Report updates and email delivery status."
                           : view === "users"
-                            ? "Manage the people keeping your operations moving."
-                            : "Your account, workspace options, and service configuration."}
+                            ? "Manage supervisor accounts and access."
+                            : "Account and workspace settings."}
               </p>
             </div>
             <div className="heading-actions">
@@ -534,164 +433,125 @@ export default function Workspace({
           )}
           {view === "dashboard" ? (
             <>
-              <div className="stats-grid">
-                {[
-                  {
-                    key: "waste",
-                    title: "Waste reports",
-                    icon: Recycle,
-                    note: "Agricultural waste documented",
-                    color: "mint",
-                  },
-                  {
-                    key: "facilities",
-                    title: admin
-                      ? "Registered facilities"
-                      : "Assigned facilities",
-                    icon: Building2,
-                    note: "Your site infrastructure",
-                    color: "sand",
-                  },
-                  {
-                    key: "today",
-                    title: "Submitted today",
-                    icon: ClipboardCheck,
-                    note: `Across both modules · ${timezone}`,
-                    color: "lilac",
-                  },
-                  {
-                    key: admin ? "supervisors" : "inspections",
-                    title: admin ? "Active supervisors" : "My inspections",
-                    icon: admin ? Users : ShieldCheck,
-                    note: admin
-                      ? "Connected in the field"
-                      : "Verified facility observations",
-                    color: "gray",
-                  },
-                ].map((s) => (
-                  <article className="stat-card" key={s.key}>
-                    <div>
-                      <span>{s.title}</span>
-                      <span className={`stat-icon ${s.color}`}>
-                        <s.icon size={20} />
-                      </span>
-                    </div>
-                    <strong>{loading ? "…" : count(s.key)}</strong>
-                    <small>{s.note}</small>
-                  </article>
-                ))}
-              </div>
-              <div className="section-heading">
-                <div>
-                  <span className="eyebrow">TWO MODULES. ONE WORKSPACE.</span>
-                  <h2>Where are we working today?</h2>
+              {configured && (
+                <div className="stats-grid">
+                  {[
+                    {
+                      key: "waste",
+                      title: "Waste reports",
+                      icon: Recycle,
+                      color: "mint",
+                    },
+                    {
+                      key: "facilities",
+                      title: admin
+                        ? "Registered facilities"
+                        : "Assigned facilities",
+                      icon: Building2,
+                      color: "sand",
+                    },
+                    {
+                      key: "today",
+                      title: "Submitted today",
+                      icon: ClipboardCheck,
+                      color: "lilac",
+                    },
+                    {
+                      key: admin ? "supervisors" : "inspections",
+                      title: admin ? "Active supervisors" : "My inspections",
+                      icon: admin ? Users : ShieldCheck,
+                      color: "gray",
+                    },
+                  ].map((s) => (
+                    <article className="stat-card" key={s.key}>
+                      <div>
+                        <span>{s.title}</span>
+                        <span className={"stat-icon " + s.color}>
+                          <s.icon size={21} />
+                        </span>
+                      </div>
+                      <strong>{loading ? "…" : count(s.key)}</strong>
+                    </article>
+                  ))}
                 </div>
-                <span className="section-counter">01 — 02</span>
-              </div>
+              )}
               <div className="modules-grid">
                 <article className="module-card waste-module">
-                  <div className="module-top">
+                  <div className="module-header">
                     <span className="module-icon">
-                      <Recycle size={27} />
+                      <Recycle size={28} />
                     </span>
-                    <span className="pill">
-                      COSA <span className="small-dot" />
-                    </span>
+                    <span className="pill">COSA</span>
                   </div>
-                  <Botanical />
                   <div className="module-copy">
-                    <span className="eyebrow">FROM SITE TO RECORD</span>
-                    <h2>
-                      Oasis Waste
-                      <br />
-                      Tracking<span>↗</span>
-                    </h2>
+                    <h2>Oasis Waste Tracking</h2>
                     <p>
-                      Document agricultural waste with clear photos,
-                      <br className="desktop-break" /> estimated quantities, and
-                      verified locations.
+                      Submit waste quantities, site photos, and verified
+                      locations.
                     </p>
                   </div>
                   <footer>
-                    <Button onClick={() => navigate("waste")}>
-                      Open waste tracking
-                      <ArrowUpRight size={19} />
+                    <Button
+                      onClick={() => {
+                        setModule("waste");
+                        setForm("waste");
+                      }}
+                    >
+                      <Plus size={18} />
+                      New waste report
                     </Button>
-                    <span>
-                      <Camera size={15} />
-                      <MapPin size={15} />
-                      <span>Photo + GPS verified</span>
-                    </span>
+                    <Button variant="ghost" onClick={() => navigate("waste")}>
+                      View reports
+                      <ArrowUpRight size={18} />
+                    </Button>
                   </footer>
                 </article>
                 <article className="module-card facility-module">
-                  <div className="module-top">
+                  <div className="module-header">
                     <span className="module-icon">
-                      <Building2 size={27} />
+                      <Building2 size={28} />
                     </span>
-                    <span className="pill">
-                      OFT <span className="small-dot" />
-                    </span>
-                  </div>
-                  <div className="building-art" aria-hidden="true">
-                    <div className="building-tall">
-                      <i />
-                      <i />
-                      <i />
-                      <i />
-                      <i />
-                      <i />
-                    </div>
-                    <div className="building-low">
-                      <i />
-                      <i />
-                      <i />
-                      <i />
-                    </div>
-                    <div className="building-ground" />
+                    <span className="pill">OFT</span>
                   </div>
                   <div className="module-copy">
-                    <span className="eyebrow">KEEP EVERY SITE IN SIGHT</span>
-                    <h2>
-                      OnSite Facilities
-                      <br />
-                      Tracking<span>↗</span>
-                    </h2>
+                    <h2>OnSite Facilities Tracking</h2>
                     <p>
-                      Register facilities, record inspections, and
-                      <br className="desktop-break" /> stay ahead of what needs
-                      attention.
+                      Register facilities and record inspections of their
+                      condition.
                     </p>
                   </div>
                   <footer>
                     <Button
-                      variant="secondary"
+                      onClick={() => {
+                        setModule("inspection");
+                        setForm(admin ? "facility" : "inspection");
+                      }}
+                    >
+                      <Plus size={18} />
+                      {admin ? "Register facility" : "New inspection"}
+                    </Button>
+                    <Button
+                      variant="ghost"
                       onClick={() => navigate("facilities")}
                     >
-                      Open facilities tracking
-                      <ArrowUpRight size={19} />
+                      View facilities
+                      <ArrowUpRight size={18} />
                     </Button>
-                    <span>
-                      <ClipboardCheck size={15} />
-                      <span>Inspect. Monitor. Maintain.</span>
-                    </span>
                   </footer>
                 </article>
               </div>
-              <div className="lower-grid">
+              {configured && (
                 <article className="activity-card">
                   <div className="card-heading">
-                    <div>
-                      <span className="eyebrow">THE LATEST FROM THE FIELD</span>
-                      <h2>Recent activity</h2>
-                    </div>
+                    <h2>Recent activity</h2>
                     <Button
                       variant="ghost"
-                      size="sm"
-                      onClick={() => navigate("waste")}
+                      onClick={() =>
+                        navigate(module === "waste" ? "waste" : "inspections")
+                      }
                     >
-                      All reports
-                      <ArrowUpRight size={17} />
+                      View all
+                      <ArrowUpRight size={18} />
                     </Button>
                   </div>
                   {overview?.recent?.length ? (
@@ -712,9 +572,9 @@ export default function Workspace({
                         >
                           <span className="activity-icon">
                             {r.number.startsWith("COSA") ? (
-                              <Recycle size={20} />
+                              <Recycle size={21} />
                             ) : (
-                              <Building2 size={20} />
+                              <Building2 size={21} />
                             )}
                           </span>
                           <div>
@@ -724,78 +584,18 @@ export default function Workspace({
                           <time>
                             {formatDate(r.created_at, timezone, true)}
                           </time>
-                          <ArrowUpRight size={17} />
+                          <ArrowUpRight size={18} />
                         </button>
                       ))}
                     </div>
                   ) : (
                     <div className="activity-empty">
-                      <span className="empty-icon">
-                        <Activity size={27} />
-                      </span>
-                      <div>
-                        <h3>
-                          {configured
-                            ? "Your next site visit starts here."
-                            : "A fresh start for your operations."}
-                        </h3>
-                        <p>
-                          {configured
-                            ? "Submitted reports and inspections will appear here."
-                            : "Recent activity will appear once your services are connected."}
-                        </p>
-                      </div>
-                      <span className="empty-dash">—</span>
+                      <FileText size={24} />
+                      <p>No reports submitted yet.</p>
                     </div>
                   )}
-                  <footer className="activity-footer">
-                    <span className="online-dot" />
-                    {configured
-                      ? "Showing your authorized records"
-                      : "Awaiting live data connection"}
-                    <span>ONE SOURCE OF TRUTH</span>
-                  </footer>
                 </article>
-                <article className="field-card">
-                  <div className="field-card-top">
-                    <span className="pill">
-                      <span className="small-dot" />
-                      FIELD ESSENTIALS
-                    </span>
-                    <Navigation size={23} />
-                  </div>
-                  <h2>
-                    A good report
-                    <br />
-                    starts on site.
-                  </h2>
-                  <div className="field-steps">
-                    <span>
-                      <Camera size={16} />
-                      2–3 clear photographs
-                    </span>
-                    <span>
-                      <MapPin size={16} />
-                      Device GPS within {gpsThreshold} m
-                    </span>
-                    <span>
-                      <ShieldCheck size={16} />
-                      Confirm your position on the map
-                    </span>
-                  </div>
-                  <button onClick={() => setChooser(true)}>
-                    Make your next report
-                    <ArrowRight size={19} />
-                  </button>
-                </article>
-              </div>
-              <div className="workspace-footnote">
-                <span>
-                  <ShieldCheck size={14} />
-                  Secure access. Real records. Better oversight.
-                </span>
-                <span>OASIS FIELD OPERATIONS</span>
-              </div>
+              )}
             </>
           ) : view === "settings" ? (
             <SettingsPanel
@@ -820,7 +620,6 @@ export default function Workspace({
                         <span>{s.label}</span>
                       </div>
                       <strong>{count(s.key)}</strong>
-                      <small>Live operational totals</small>
                     </article>
                   ))}
                 </div>
@@ -862,6 +661,8 @@ export default function Workspace({
                     </div>
                     <Button
                       variant="secondary"
+                      aria-label="Filters"
+                      aria-expanded={filters}
                       onClick={() => setFilters(!filters)}
                     >
                       <SlidersHorizontal size={17} />
