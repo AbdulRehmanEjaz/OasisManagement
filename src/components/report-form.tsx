@@ -53,6 +53,7 @@ export default function ReportForm({
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false),
     [gpsBusy, setGpsBusy] = useState(false),
+    [gpsHint, setGpsHint] = useState(""),
     [gps, setGps] = useState<Row | null>(null),
     [confirmed, setConfirmed] = useState(false),
     [mapOpen, setMapOpen] = useState(false),
@@ -115,6 +116,7 @@ export default function ReportForm({
     setGps(null);
     setConfirmed(false);
     setMapViewed(false);
+    setGpsHint("");
     if (!window.isSecureContext) {
       setError("Location access requires HTTPS or localhost. Open the dashboard using a secure connection.");
       return;
@@ -140,7 +142,7 @@ export default function ReportForm({
       try {
         if (!position)
           throw new Error(message || "GPS timed out. Move outdoors and retry.");
-        if (Date.now() - position.timestamp > 30000)
+        if (Date.now() - position.timestamp > 90000)
           throw new Error("The device returned an old position. Get location again for a fresh reading.");
         const v = {
           latitude: position.coords.latitude,
@@ -148,10 +150,16 @@ export default function ReportForm({
           accuracy: position.coords.accuracy,
           captured_at: new Date(position.timestamp).toISOString(),
         };
-        validateGPS(v, threshold);
+        // Retain a real but imprecise fix for map preview. Never label it
+        // confirmed or persist it as a report-ready location.
+        validateGPS(v, Number.MAX_VALUE);
+        if (mounted.current) setGps({ ...v, id: "" });
+        if (v.accuracy > threshold) {
+          setGpsHint(`Your device located you within ±${Math.ceil(v.accuracy)} m. You can view this approximate position on the map, but reports need accuracy within ${threshold} m. Enable precise location in your device settings, move outdoors, and tap Try again. A GPS-equipped phone usually provides a better fix than a computer.`);
+          return;
+        }
         // Device capture works independently of database configuration.
         // Only a server-issued ID can later confirm and submit a report.
-        if (mounted.current) setGps({ ...v, id: "" });
         if (!enabled) return;
         const result = await api("location.capture", v);
         if (mounted.current) setGps({ ...v, id: result.id });
@@ -165,22 +173,28 @@ export default function ReportForm({
       (p) => {
         if (done || Date.now() - p.timestamp > 30000 || p.timestamp > Date.now() + 10000 ||
           !Number.isFinite(p.coords.accuracy) || p.coords.accuracy <= 0) return;
-        if (!best || p.coords.accuracy < best.coords.accuracy) best = p;
+        if (!Number.isFinite(p.coords.latitude) || Math.abs(p.coords.latitude) > 90 ||
+          !Number.isFinite(p.coords.longitude) || Math.abs(p.coords.longitude) > 180) return;
+        if (!best || p.coords.accuracy <= best.coords.accuracy) {
+          best = p;
+          setGps({ latitude: p.coords.latitude, longitude: p.coords.longitude,
+            accuracy: p.coords.accuracy, captured_at: new Date(p.timestamp).toISOString(), id: "" });
+        }
         if (p.coords.accuracy <= threshold && Date.now() - p.timestamp < 30000)
           void finish(p);
       },
-      (e) =>
+      (e) => {
+        // A watch timeout is recoverable: continue seeking a better fix
+        // until the overall acquisition deadline instead of discarding it.
+        if (e.code !== 1) return;
         void finish(
           undefined,
-          e.code === 1
-            ? "Location permission denied. Enable location access in browser settings, then retry."
-            : e.code === 2
-              ? "GPS is unavailable. Move outdoors and retry."
-              : "GPS timed out. Please retry.",
-        ),
-      { enableHighAccuracy: true, maximumAge: 0, timeout: 25000 },
+          "Location permission denied. Enable location access in browser settings, then retry.",
+        );
+      },
+      { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 },
     );
-    timerRef.current = setTimeout(() => void finish(best), 26000);
+    timerRef.current = setTimeout(() => void finish(best), 60000);
   }
   async function mapReady() {
     if (!gps || mapViewed) return;
@@ -454,12 +468,12 @@ export default function ReportForm({
                 ) : (
                   <Navigation size={18} />
                 )}{" "}
-                {gpsBusy ? "Acquiring GPS…" : "Get location"}
+                {gpsBusy ? "Improving accuracy…" : gps && gps.accuracy > threshold ? "Try again" : "Get location"}
               </Button>
               <Button
                 type="button"
                 variant="outline"
-                disabled={!gps}
+                disabled={!gps || gpsBusy}
                 onClick={() => {
                   setMapViewed(false);
                   setConfirmed(false);
@@ -472,9 +486,10 @@ export default function ReportForm({
             </div>
             <p className="muted" role="status" aria-live="polite">
               {gpsBusy
-                ? `Requesting a fresh high-accuracy position (within ${threshold} m). Allow location access when prompted; move outdoors for a better signal.`
+                ? `Looking for a precise position for up to 60 seconds${gps ? ` · best accuracy so far: ±${Math.ceil(gps.accuracy)} m` : ""}. Allow precise location access when prompted.`
                 : `Uses your device's location services with high accuracy enabled. Required accuracy: within ${threshold} m. Your browser controls GPS availability and permission.`}
             </p>
+            {gpsHint && <p className="notice" role="status">{gpsHint}</p>}
             {gps && (
               <div className={`gps-state ${confirmed ? "verified" : ""}`}>
                 <ShieldCheck size={22} />
@@ -482,11 +497,11 @@ export default function ReportForm({
                   <strong>
                     {confirmed
                       ? "Location confirmed"
-                      : gps.id ? "Location captured · verification required" : "Location captured on this device"}
+                      : gps.accuracy > threshold ? "Approximate location · better accuracy needed" : gps.id ? "Location captured · verification required" : "Location captured on this device"}
                   </strong>
                   <p>
                     {gps.latitude}, {gps.longitude} · ±
-                    {Math.round(gps.accuracy)} m
+                    {Math.ceil(gps.accuracy)} m
                   </p>
                   <small>
                     {formatDate(gps.captured_at, timezone)} · expires after 5
@@ -568,7 +583,7 @@ export default function ReportForm({
             </Button>
             <Button
               type="button"
-              disabled={!mapViewed || busy}
+              disabled={!mapViewed || busy || gps.accuracy > threshold}
               onClick={confirm}
             >
               {mapViewed ? "Confirm This Location" : "Waiting for map…"}
