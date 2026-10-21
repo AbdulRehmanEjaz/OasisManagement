@@ -1,12 +1,21 @@
+import { isSameOrigin } from "@/lib/request-security";
 import { NextRequest, NextResponse } from "next/server";
-import { requireUser, privileged, rateLimit } from "@/lib/supabase";
+import { requireUser, privileged, rateLimit, configured } from "@/lib/supabase";
+import { requirePanel } from "@/lib/panels";
+import { canSubmit } from "@/lib/access-policy";
 import sharp from "sharp";
 export const runtime = "nodejs";
 export async function POST(req: NextRequest) {
   try {
-    if (req.headers.get("origin") !== req.nextUrl.origin)
+    if (!isSameOrigin(req))
       return NextResponse.json({ error: "Invalid origin" }, { status: 403 });
-    const { db, user } = await requireUser();
+    if (!configured()) {
+      const p = await requirePanel();
+      if (!canSubmit(p.role)) throw new Error("FORBIDDEN");
+      throw new Error("CONFIGURATION_REQUIRED");
+    }
+    const { db, user, profile } = await requireUser();
+    if (!canSubmit(profile.role)) throw new Error("FORBIDDEN");
     await rateLimit(db, "image-upload", 12);
     if (!process.env.IMGBB_API_KEY)
       throw new Error("Image hosting is not configured.");

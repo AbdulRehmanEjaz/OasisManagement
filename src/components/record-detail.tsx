@@ -22,6 +22,7 @@ export default function RecordDetail({
   record: r,
   type,
   admin,
+  viewer = false,
   users,
   options,
   timezone,
@@ -32,6 +33,7 @@ export default function RecordDetail({
   record: Row;
   type: string;
   admin: boolean;
+  viewer?: boolean;
   users: Row[];
   options: Row[];
   timezone: string;
@@ -62,7 +64,7 @@ export default function RecordDetail({
           setHistoryCount(d.count);
         })
         .catch((e) => setError(e.message));
-    else
+    else if (!viewer)
       read("deliveries", { record: r.id })
         .then((d) => setDelivery(d.data[0]?.status || "pending"))
         .catch((e) => setError(e.message));
@@ -70,7 +72,7 @@ export default function RecordDetail({
       read("audit", { record: r.id })
         .then((d) => setAudit(d.data))
         .catch((e) => setError(e.message));
-  }, [r.id, type, admin, historyPage]);
+  }, [r.id, type, admin, viewer, historyPage]);
   function field(name: string, value: string) {
     setValues((v) => ({ ...v, [name]: value }));
   }
@@ -169,6 +171,7 @@ export default function RecordDetail({
                     }
                   : type === "waste"
                     ? {
+                        site: values.site,
                         category: values.category,
                         quantity: Number(values.quantity),
                         unit: values.unit,
@@ -218,6 +221,7 @@ export default function RecordDetail({
               </>
             ) : type === "waste" ? (
               <>
+                {input("site", "Project / site name")}
                 {select("category", "Waste type", "waste")}
                 {input("quantity", "Quantity", true)}
                 {select("unit", "Unit", "unit")}
@@ -257,6 +261,7 @@ export default function RecordDetail({
                 : type === "waste"
                   ? {
                       "Report number": r.number,
+                      Site: r.site || "—",
                       "Waste type": r.category,
                       Quantity: `${r.quantity} ${r.unit}`,
                       Supervisor: r.profiles?.full_name || "—",
@@ -270,12 +275,22 @@ export default function RecordDetail({
                       Supervisor: r.profiles?.full_name || "—",
                       "Manager email": delivery || "Loading…",
                     },
-            ).map(([k, v]) => (
-              <div key={k}>
-                <dt>{k}</dt>
-                <dd>{String(v)}</dd>
-              </div>
-            ))}
+            )
+              .filter(
+                ([k]) =>
+                  !viewer ||
+                  ![
+                    "Supervisor",
+                    "Assigned supervisor",
+                    "Manager email",
+                  ].includes(k),
+              )
+              .map(([k, v]) => (
+                <div key={k}>
+                  <dt>{k}</dt>
+                  <dd>{String(v)}</dd>
+                </div>
+              ))}
           </dl>
           <div className="detail-description">
             <h3>{type === "inspections" ? "Observations" : "Description"}</h3>
@@ -348,8 +363,8 @@ export default function RecordDetail({
                   {i.number} · {i.condition}
                 </strong>
                 <small>
-                  {formatDate(i.created_at, timezone)} ·{" "}
-                  {i.profiles?.full_name || "Supervisor"}
+                  {formatDate(i.created_at, timezone)}
+                  {!viewer && ` · ${i.profiles?.full_name || "Supervisor"}`}
                 </small>
                 <p>{i.description}</p>
                 <div className="history-photos">

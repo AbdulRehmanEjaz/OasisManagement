@@ -3,22 +3,25 @@ export type Profile = {
   id: string;
   full_name: string;
   email: string;
-  role: "admin" | "supervisor";
+  role: "admin" | "viewer" | "supervisor";
   is_active: boolean;
 };
 export async function api(action: string, body: Record<string, unknown> = {}) {
-  const response = await fetch("/api/operations", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ action, ...body }),
-  });
+  const response = await fetch(
+    action.startsWith("user.") ? "/api/access" : "/api/operations",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action, ...body }),
+    },
+  );
   const data = await response.json();
   if (!response.ok) throw new Error(data.error || "Request failed.");
   return data;
 }
 export async function read(type: string, params: Record<string, string> = {}) {
   const r = await fetch(
-    `/api/operations?${new URLSearchParams({ type, ...params })}`,
+    `${type === "users" ? "/api/access" : "/api/operations"}?${new URLSearchParams({ type, ...params })}`,
     { cache: "no-store" },
   );
   const d = await r.json();

@@ -19,7 +19,12 @@ export async function database() {
         setAll: (values) => {
           try {
             values.forEach(({ name, value, options }) =>
-              jar.set(name, value, options),
+              jar.set(name, value, {
+                ...options,
+                httpOnly: true,
+                secure: process.env.NODE_ENV === "production",
+                sameSite: "strict",
+              }),
             );
           } catch {
             /* Read-only server component; route handlers refresh cookies. */

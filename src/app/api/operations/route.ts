@@ -1,5 +1,8 @@
+import { isSameOrigin } from "@/lib/request-security";
 import { NextRequest, NextResponse } from "next/server";
-import { requireUser, privileged, rateLimit } from "@/lib/supabase";
+import { requireUser, privileged, rateLimit, configured } from "@/lib/supabase";
+import { requirePanel } from "@/lib/panels";
+import { canReadType, canSubmit } from "@/lib/access-policy";
 import {
   reportSchema,
   facilitySchema,
@@ -57,9 +60,45 @@ function failure(e: unknown) {
 }
 export async function GET(req: NextRequest) {
   try {
+    const typeRequested = req.nextUrl.searchParams.get("type") || "overview";
+    if (!configured()) {
+      const p = await requirePanel();
+      if (!canReadType(p.role, typeRequested)) throw new Error("FORBIDDEN");
+      throw new Error("CONFIGURATION_REQUIRED");
+    }
     const { db, profile } = await requireUser();
     const q = req.nextUrl.searchParams;
     const type = q.get("type") || "overview";
+    if (!canReadType(profile.role, type)) throw new Error("FORBIDDEN");
+    if (profile.role === "supervisor" && type === "facilities") {
+      const { data, error } = await db.rpc("facility_choices");
+      if (error) throw error;
+      return NextResponse.json({ data, count: data.length });
+    }
+    if (profile.role === "viewer" && type !== "options") {
+      if (type === "overview") {
+        const results = await Promise.all(
+          ["waste", "facilities", "inspections"].map((p_kind) =>
+            db.rpc("viewer_records", { p_kind, p_filters: {} }),
+          ),
+        );
+        for (const r of results) if (r.error) throw r.error;
+        return NextResponse.json({
+          waste: results[0].data.count,
+          facilities: results[1].data.count,
+          inspections: results[2].data.count,
+          recent: [...results[0].data.data, ...results[2].data.data]
+            .sort((a, b) => b.created_at.localeCompare(a.created_at))
+            .slice(0, 5),
+        });
+      }
+      const { data, error } = await db.rpc("viewer_records", {
+        p_kind: type,
+        p_filters: Object.fromEntries(q),
+      });
+      if (error) throw error;
+      return NextResponse.json(data);
+    }
     if (type === "overview") {
       const now = new Date();
       const date = new Intl.DateTimeFormat("en-CA", {
@@ -205,9 +244,14 @@ export async function GET(req: NextRequest) {
 }
 export async function POST(req: NextRequest) {
   try {
-    if (req.headers.get("origin") !== req.nextUrl.origin)
-      throw new Error("FORBIDDEN");
+    if (!isSameOrigin(req)) throw new Error("FORBIDDEN");
+    if (!configured()) {
+      const p = await requirePanel();
+      if (!canSubmit(p.role)) throw new Error("FORBIDDEN");
+      throw new Error("CONFIGURATION_REQUIRED");
+    }
     const { db, user, profile } = await requireUser();
+    if (!canSubmit(profile.role)) throw new Error("FORBIDDEN");
     const input = await req.json();
     const action = z.string().parse(input.action);
     await rateLimit(db, action, action === "upload" ? 15 : 40);
@@ -265,7 +309,7 @@ export async function POST(req: NextRequest) {
       const { data, error } = await db.rpc("submit_report", { p });
       if (error) throw error;
       await sendNotification(data.id, p.kind);
-      const { data: delivery } = await db
+      const { data: delivery } = await privileged()
         .from("delivery_attempts")
         .select("status")
         .eq("record_id", data.id)
@@ -305,6 +349,7 @@ export async function POST(req: NextRequest) {
       } else if (type === "waste") {
         patch = z
           .object({
+            site: z.string().trim().min(1).max(200),
             category: z.string().min(1),
             quantity: z.number().positive().max(100000000),
             unit: z.string().min(1),
@@ -386,47 +431,6 @@ export async function POST(req: NextRequest) {
               .select("id")
               .single();
       if (result.error) throw result.error;
-      return NextResponse.json({ ok: true });
-    }
-    if (action === "user.create") {
-      const v = z
-        .object({
-          full_name: z.string().trim().min(2).max(200),
-          email: z.email(),
-          password: z.string().min(12).max(128),
-        })
-        .parse(input);
-      const service = privileged();
-      const { data, error } = await service.auth.admin.createUser({
-        email: v.email,
-        password: v.password,
-        email_confirm: true,
-      });
-      if (error) throw error;
-      const { error: pError } = await service.from("profiles").insert({
-        id: data.user.id,
-        full_name: v.full_name,
-        email: v.email,
-        role: "supervisor",
-      });
-      if (pError) {
-        await service.auth.admin.deleteUser(data.user.id);
-        throw pError;
-      }
-      return NextResponse.json({ ok: true });
-    }
-    if (action === "user.toggle") {
-      const id = z.uuid().parse(input.id);
-      if (id === user.id) throw new Error("You cannot deactivate yourself.");
-      const { error } = await db
-        .from("profiles")
-        .update({
-          is_active: z.boolean().parse(input.is_active),
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", id)
-        .eq("role", "supervisor");
-      if (error) throw error;
       return NextResponse.json({ ok: true });
     }
     if (action === "notification.read") {

@@ -36,6 +36,8 @@ import { Button } from "./ui/button";
 import Modal from "./modal";
 import ReportForm from "./report-form";
 import RecordDetail from "./record-detail";
+import AccessManagement from "./access-management";
+import { allowedViews, canReadReports, canSubmit } from "@/lib/access-policy";
 const LocationMap = dynamic(() => import("./map"), {
   ssr: false,
   loading: () => <div className="map-loading">Loading map…</div>,
@@ -77,6 +79,11 @@ export default function Workspace({
   gpsThreshold: number;
 }) {
   const admin = profile?.role === "admin";
+  const viewer = profile?.role === "viewer";
+  const supervisorPanel = profile?.role === "supervisor";
+  const browse = canReadReports(profile?.role || "");
+  const submitAllowed = canSubmit(profile?.role || "");
+  const panelViews = allowedViews(profile?.role || "supervisor");
   const [view, setView] = useState<View>("dashboard"),
     [module, setModule] = useState<"waste" | "inspection">("waste"),
     [menu, setMenu] = useState(false),
@@ -105,7 +112,6 @@ export default function Workspace({
     ),
     [chooser, setChooser] = useState(false),
     [success, setSuccess] = useState<Row | null>(null),
-    [userForm, setUserForm] = useState(false),
     [deliveries, setDeliveries] = useState<Row[]>([]),
     [refresh, setRefresh] = useState(0),
     [now, setNow] = useState<Date | null>(null);
@@ -113,22 +119,30 @@ export default function Workspace({
     setNow(new Date());
     const q = new URLSearchParams(location.search);
     const v = q.get("view");
-    if (v && Object.keys(labels).includes(v)) setView(v as View);
+    if (v && panelViews.includes(v)) setView(v as View);
     const id = q.get("record");
-    if (configured && id && ["waste", "inspections"].includes(v || ""))
+    if (
+      configured &&
+      browse &&
+      id &&
+      ["waste", "inspections"].includes(v || "")
+    )
       read(v!, { id })
         .then((d) => d.data[0] && setDetail({ row: d.data[0], type: v! }))
         .catch((e) => setError(e.message));
   }, [configured]);
   const reload = useCallback(() => setRefresh((n) => n + 1), []);
   useEffect(() => {
-    if (!configured) return;
     let alive = true;
     Promise.all([
-      read("facilities", { all: "1" }),
-      read("options", { all: "1" }),
+      configured && submitAllowed
+        ? read("facilities", { all: "1" })
+        : Promise.resolve({ data: [] }),
+      configured
+        ? read("options", { all: "1" })
+        : Promise.resolve({ data: [] }),
       admin ? read("users", { all: "1" }) : Promise.resolve({ data: [] }),
-      read("overview"),
+      configured && browse ? read("overview") : Promise.resolve(null),
     ])
       .then(([f, o, u, stats]) => {
         if (alive) {
@@ -144,7 +158,12 @@ export default function Workspace({
     };
   }, [configured, admin, refresh]);
   useEffect(() => {
-    if (!configured) return;
+    if (
+      (!configured && view !== "users") ||
+      supervisorPanel ||
+      view === "users"
+    )
+      return;
     let alive = true;
     const timer = setTimeout(
       async () => {
@@ -200,6 +219,7 @@ export default function Workspace({
     refresh,
   ]);
   function navigate(v: View) {
+    if (!panelViews.includes(v)) return;
     setView(v);
     setSearch("");
     setCategory("");
@@ -237,7 +257,7 @@ export default function Workspace({
     "facilities",
     ...(admin ? (["notifications", "users"] as View[]) : []),
     "settings",
-  ];
+  ].filter((v) => panelViews.includes(v)) as View[];
   return (
     <main className="app-shell">
       <header className="topbar">
@@ -281,8 +301,14 @@ export default function Workspace({
             <button
               className="avatar"
               title={profile?.full_name || "Setup required"}
-              aria-label="Profile settings"
-              onClick={() => navigate("settings")}
+              aria-label={
+                admin
+                  ? "Profile settings"
+                  : viewer
+                    ? "Viewer panel"
+                    : "Supervisor panel"
+              }
+              onClick={() => navigate(admin ? "settings" : "dashboard")}
             >
               {profile ? (
                 profile.full_name
@@ -297,7 +323,13 @@ export default function Workspace({
             {profile && (
               <div className="user-label">
                 <strong>{profile.full_name}</strong>
-                <small>{admin ? "Administrator" : "Field supervisor"}</small>
+                <small>
+                  {admin
+                    ? "Admin panel"
+                    : viewer
+                      ? "Viewer panel"
+                      : "Supervisor panel"}
+                </small>
               </div>
             )}
             <Button
@@ -335,7 +367,9 @@ export default function Workspace({
                         ? "Waste tracking"
                         : v === "facilities"
                           ? "Facilities tracking"
-                          : labels[v]}
+                          : v === "users"
+                            ? "Users & PINs"
+                            : labels[v]}
                     </span>
                     {v === view && <span className="nav-dot" />}
                   </button>
@@ -359,68 +393,81 @@ export default function Workspace({
               <ShieldCheck size={19} />
               <div>
                 <strong>Connect your workspace</strong>
-                <span>Connect Supabase to enable login and reporting.</span>
+                <span>Connect Supabase to enable field records and maps.</span>
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => navigate("settings")}
-              >
-                Configure
-                <ArrowUpRight size={15} />
-              </Button>
+              {admin && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => navigate("settings")}
+                >
+                  Configure
+                  <ArrowUpRight size={15} />
+                </Button>
+              )}
             </div>
           )}
           <div className="page-heading">
             <div>
               <h1>
-                {view === "dashboard" ? "Field operations" : labels[view]}
+                {view === "dashboard"
+                  ? admin
+                    ? "Admin panel"
+                    : viewer
+                      ? "Viewer panel"
+                      : "Supervisor panel"
+                  : labels[view]}
               </h1>
               <p>
                 {view === "dashboard"
-                  ? "Waste reports and facility inspections, in one place."
+                  ? viewer
+                    ? "View reports and explore site maps."
+                    : supervisorPanel
+                      ? "Submit site information, photos, and verified locations."
+                      : "Manage records, users, and panel access."
                   : view === "waste"
-                    ? "Submit, review, and manage waste reports."
+                    ? viewer
+                      ? "Review waste reports and site locations."
+                      : "Submit, review, and manage waste reports."
                     : view === "facilities"
-                      ? "Manage facilities and their condition."
+                      ? viewer
+                        ? "View facilities and their inspection history."
+                        : "Manage facilities and their condition."
                       : view === "inspections"
                         ? "Review facility inspection history."
                         : view === "notifications"
                           ? "Report updates and email delivery status."
                           : view === "users"
-                            ? "Manage supervisor accounts and access."
+                            ? "Manage accounts, panel access, and PINs."
                             : "Account and workspace settings."}
               </p>
             </div>
-            <div className="heading-actions">
-              {view === "dashboard" ? (
-                <Button onClick={() => setChooser(true)}>
-                  <Plus size={18} />
-                  New report
-                </Button>
-              ) : ["waste", "inspections"].includes(view) ? (
-                <Button
-                  onClick={() =>
-                    setForm(view === "waste" ? "waste" : "inspection")
-                  }
-                >
-                  <Plus size={18} />
-                  {view === "waste" ? "New waste report" : "New inspection"}
-                </Button>
-              ) : view === "facilities" ? (
-                <Button
-                  onClick={() => setForm(admin ? "facility" : "inspection")}
-                >
-                  <Plus size={18} />
-                  {admin ? "Register facility" : "New inspection"}
-                </Button>
-              ) : view === "users" && admin ? (
-                <Button onClick={() => setUserForm(true)}>
-                  <Plus size={18} />
-                  Add supervisor
-                </Button>
-              ) : null}
-            </div>
+            {submitAllowed && (
+              <div className="heading-actions">
+                {view === "dashboard" ? (
+                  <Button onClick={() => setChooser(true)}>
+                    <Plus size={18} />
+                    New report
+                  </Button>
+                ) : ["waste", "inspections"].includes(view) ? (
+                  <Button
+                    onClick={() =>
+                      setForm(view === "waste" ? "waste" : "inspection")
+                    }
+                  >
+                    <Plus size={18} />
+                    {view === "waste" ? "New waste report" : "New inspection"}
+                  </Button>
+                ) : view === "facilities" ? (
+                  <Button
+                    onClick={() => setForm(admin ? "facility" : "inspection")}
+                  >
+                    <Plus size={18} />
+                    {admin ? "Register facility" : "New inspection"}
+                  </Button>
+                ) : null}
+              </div>
+            )}
           </div>
           {error && (
             <div className="notice error" role="alert">
@@ -433,7 +480,7 @@ export default function Workspace({
           )}
           {view === "dashboard" ? (
             <>
-              {configured && (
+              {configured && browse && (
                 <div className="stats-grid">
                   {[
                     {
@@ -450,15 +497,19 @@ export default function Workspace({
                       icon: Building2,
                       color: "sand",
                     },
-                    {
-                      key: "today",
-                      title: "Submitted today",
-                      icon: ClipboardCheck,
-                      color: "lilac",
-                    },
+                    ...(viewer
+                      ? []
+                      : [
+                          {
+                            key: "today",
+                            title: "Submitted today",
+                            icon: ClipboardCheck,
+                            color: "lilac",
+                          },
+                        ]),
                     {
                       key: admin ? "supervisors" : "inspections",
-                      title: admin ? "Active supervisors" : "My inspections",
+                      title: admin ? "Active supervisors" : "Inspections",
                       icon: admin ? Users : ShieldCheck,
                       color: "gray",
                     },
@@ -486,24 +537,29 @@ export default function Workspace({
                   <div className="module-copy">
                     <h2>Oasis Waste Tracking</h2>
                     <p>
-                      Submit waste quantities, site photos, and verified
-                      locations.
+                      {viewer
+                        ? "Review waste reports, site photos, and verified locations."
+                        : "Submit waste quantities, site photos, and verified locations."}
                     </p>
                   </div>
                   <footer>
-                    <Button
-                      onClick={() => {
-                        setModule("waste");
-                        setForm("waste");
-                      }}
-                    >
-                      <Plus size={18} />
-                      New waste report
-                    </Button>
-                    <Button variant="ghost" onClick={() => navigate("waste")}>
-                      View reports
-                      <ArrowUpRight size={18} />
-                    </Button>
+                    {submitAllowed && (
+                      <Button
+                        onClick={() => {
+                          setModule("waste");
+                          setForm("waste");
+                        }}
+                      >
+                        <Plus size={18} />
+                        New waste report
+                      </Button>
+                    )}
+                    {browse && (
+                      <Button variant="ghost" onClick={() => navigate("waste")}>
+                        View reports
+                        <ArrowUpRight size={18} />
+                      </Button>
+                    )}
                   </footer>
                 </article>
                 <article className="module-card facility-module">
@@ -516,31 +572,38 @@ export default function Workspace({
                   <div className="module-copy">
                     <h2>OnSite Facilities Tracking</h2>
                     <p>
-                      Register facilities and record inspections of their
-                      condition.
+                      {viewer
+                        ? "View facilities, their condition, and inspection history."
+                        : supervisorPanel
+                          ? "Record facility condition, photos, and verified locations."
+                          : "Register facilities and record inspections of their condition."}
                     </p>
                   </div>
                   <footer>
-                    <Button
-                      onClick={() => {
-                        setModule("inspection");
-                        setForm(admin ? "facility" : "inspection");
-                      }}
-                    >
-                      <Plus size={18} />
-                      {admin ? "Register facility" : "New inspection"}
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      onClick={() => navigate("facilities")}
-                    >
-                      View facilities
-                      <ArrowUpRight size={18} />
-                    </Button>
+                    {submitAllowed && (
+                      <Button
+                        onClick={() => {
+                          setModule("inspection");
+                          setForm(admin ? "facility" : "inspection");
+                        }}
+                      >
+                        <Plus size={18} />
+                        {admin ? "Register facility" : "New inspection"}
+                      </Button>
+                    )}
+                    {browse && (
+                      <Button
+                        variant="ghost"
+                        onClick={() => navigate("facilities")}
+                      >
+                        View facilities
+                        <ArrowUpRight size={18} />
+                      </Button>
+                    )}
                   </footer>
                 </article>
               </div>
-              {configured && (
+              {configured && browse && (
                 <article className="activity-card">
                   <div className="card-heading">
                     <h2>Recent activity</h2>
@@ -597,6 +660,8 @@ export default function Workspace({
                 </article>
               )}
             </>
+          ) : view === "users" && admin ? (
+            <AccessManagement profile={profile} onChange={reload} />
           ) : view === "settings" ? (
             <SettingsPanel
               profile={profile}
@@ -604,6 +669,7 @@ export default function Workspace({
               options={options}
               timezone={timezone}
               onRefresh={reload}
+              onUsers={() => navigate("users")}
             />
           ) : (
             <>
@@ -668,7 +734,7 @@ export default function Workspace({
                       <SlidersHorizontal size={17} />
                       <span>Filters</span>
                     </Button>
-                    {admin && view !== "inspections" && (
+                    {browse && (
                       <div className="segmented icon-segment">
                         <button
                           className={!mapMode ? "selected" : ""}
@@ -722,7 +788,7 @@ export default function Workspace({
                         ))}
                     </select>
                   </label>
-                  {admin && view !== "facilities" && (
+                  {admin && view !== "facilities" && !viewer && (
                     <label>
                       Supervisor
                       <select
@@ -937,10 +1003,14 @@ export default function Workspace({
                           <th>
                             {view === "waste"
                               ? "Quantity"
-                              : "Status / supervisor"}
+                              : viewer
+                                ? "Condition / status"
+                                : "Status / supervisor"}
                           </th>
                           <th>Location</th>
-                          {view !== "facilities" && <th>Manager email</th>}
+                          {view !== "facilities" && !viewer && (
+                            <th>Manager email</th>
+                          )}
                           <th>Details</th>
                         </tr>
                       </thead>
@@ -971,7 +1041,10 @@ export default function Workspace({
                                 `${r.quantity} ${r.unit}`
                               ) : (
                                 <span className="status">
-                                  {r.status || r.profiles?.full_name}
+                                  {r.status ||
+                                    (viewer
+                                      ? r.condition
+                                      : r.profiles?.full_name)}
                                 </span>
                               )}
                             </td>
@@ -990,7 +1063,7 @@ export default function Workspace({
                                     : "Unverified"}
                               </button>
                             </td>
-                            {view !== "facilities" && (
+                            {view !== "facilities" && !viewer && (
                               <td>
                                 <span
                                   className={`status ${r.email_status === "failed" ? "bad" : r.email_status === "sent" ? "good" : ""}`}
@@ -1114,7 +1187,11 @@ export default function Workspace({
           )}
         </section>
       </div>
-      <nav className="mobile-bottom">
+      <nav
+        className={
+          "mobile-bottom " + (supervisorPanel ? "submit-navigation" : "")
+        }
+      >
         <button
           className={view === "dashboard" ? "active" : ""}
           onClick={() => navigate("dashboard")}
@@ -1122,23 +1199,32 @@ export default function Workspace({
           <LayoutDashboard size={21} />
           Home
         </button>
-        <button onClick={() => setForm(module)}>
-          <Plus size={22} />
-          New report
-        </button>
-        <button
-          className={["waste", "inspections"].includes(view) ? "active" : ""}
-          onClick={() => navigate(module === "waste" ? "waste" : "inspections")}
-        >
-          <FileText size={21} />
-          My reports
-        </button>
-        <button
-          className={view === "settings" ? "active" : ""}
-          onClick={() => navigate("settings")}
-        >
-          <Users size={21} />
-          Profile
+        {submitAllowed && (
+          <button onClick={() => setChooser(true)}>
+            <Plus size={22} />
+            Submit data
+          </button>
+        )}
+        {browse && (
+          <button onClick={() => navigate("waste")}>
+            <FileText size={21} />
+            Reports
+          </button>
+        )}
+        {viewer && (
+          <button
+            onClick={() => {
+              navigate("facilities");
+              setMapMode(true);
+            }}
+          >
+            <Map size={21} />
+            Maps
+          </button>
+        )}
+        <button onClick={logout}>
+          <LogOut size={21} />
+          Sign out
         </button>
       </nav>
       {chooser && (
@@ -1241,26 +1327,28 @@ export default function Workspace({
             >
               Submit another
             </Button>
-            <Button
-              onClick={async () => {
-                try {
-                  const type =
-                    success.kind === "waste"
-                      ? "waste"
-                      : success.kind === "facility"
-                        ? "facilities"
-                        : "inspections";
-                  const d = await read(type, { id: success.id });
-                  setSuccess(null);
-                  setDetail({ row: d.data[0], type });
-                } catch (e) {
-                  setError((e as Error).message);
-                }
-              }}
-            >
-              View record
-              <ArrowUpRight size={17} />
-            </Button>
+            {browse && (
+              <Button
+                onClick={async () => {
+                  try {
+                    const type =
+                      success.kind === "waste"
+                        ? "waste"
+                        : success.kind === "facility"
+                          ? "facilities"
+                          : "inspections";
+                    const d = await read(type, { id: success.id });
+                    setSuccess(null);
+                    setDetail({ row: d.data[0], type });
+                  } catch (e) {
+                    setError((e as Error).message);
+                  }
+                }}
+              >
+                View record
+                <ArrowUpRight size={17} />
+              </Button>
+            )}
           </div>
         </Modal>
       )}
@@ -1269,6 +1357,7 @@ export default function Workspace({
           record={detail.row}
           type={detail.type}
           admin={admin}
+          viewer={viewer}
           users={users}
           options={options}
           timezone={timezone}
@@ -1321,73 +1410,7 @@ export default function Workspace({
           </div>
         </Modal>
       )}
-      {userForm && (
-        <UserForm
-          onClose={() => setUserForm(false)}
-          onSaved={() => {
-            setUserForm(false);
-            reload();
-          }}
-        />
-      )}
     </main>
-  );
-}
-function UserForm({
-  onClose,
-  onSaved,
-}: {
-  onClose: () => void;
-  onSaved: () => void;
-}) {
-  const [error, setError] = useState(""),
-    [busy, setBusy] = useState(false);
-  return (
-    <Modal title="Create supervisor account" onClose={onClose}>
-      <p className="muted">
-        Share the initial credentials securely. The supervisor can use a
-        password reset link to choose their own password.
-      </p>
-      <form
-        onSubmit={async (e) => {
-          e.preventDefault();
-          setBusy(true);
-          const f = new FormData(e.currentTarget);
-          try {
-            await api("user.create", Object.fromEntries(f));
-            onSaved();
-          } catch (e) {
-            setError((e as Error).message);
-          } finally {
-            setBusy(false);
-          }
-        }}
-      >
-        <label>
-          Full name
-          <input name="full_name" required minLength={2} />
-        </label>
-        <label>
-          Email address
-          <input name="email" type="email" required />
-        </label>
-        <label>
-          Initial password
-          <input
-            name="password"
-            type="password"
-            minLength={12}
-            required
-            autoComplete="new-password"
-          />
-        </label>
-        {error && <p className="notice error">{error}</p>}
-        <Button disabled={busy}>
-          {busy ? "Creating account…" : "Create supervisor"}
-          <Plus size={18} />
-        </Button>
-      </form>
-    </Modal>
   );
 }
 function SettingsPanel({
@@ -1396,12 +1419,14 @@ function SettingsPanel({
   options,
   timezone,
   onRefresh,
+  onUsers,
 }: {
   profile: Profile | null;
   configured: boolean;
   options: Row[];
   timezone: string;
   onRefresh: () => void;
+  onUsers: () => void;
 }) {
   const [error, setError] = useState(""),
     [busy, setBusy] = useState(false);
@@ -1409,56 +1434,18 @@ function SettingsPanel({
     <div className="settings-grid">
       <section className="records-card">
         <div className="card-heading">
-          <h2>Your profile</h2>
+          <h2>Panel access</h2>
           <Users size={20} />
         </div>
         <div className="settings-body">
-          <label>
-            Name
-            <input readOnly value={profile?.full_name || "Not connected"} />
-          </label>
-          <label>
-            Email
-            <input readOnly value={profile?.email || "Not connected"} />
-          </label>
-          <div className="profile-meta">
-            <span className="pill">{profile?.role || "Setup required"}</span>
-            <span>{timezone}</span>
-          </div>
-          {profile && (
-            <>
-              <p className="muted">
-                Use a secure email link to reset your password.
-              </p>
-              <Button
-                variant="outline"
-                disabled={busy}
-                onClick={async () => {
-                  setBusy(true);
-                  try {
-                    const r = await fetch("/api/auth", {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({
-                        action: "reset",
-                        email: profile.email,
-                      }),
-                    });
-                    const d = await r.json();
-                    if (!r.ok) throw new Error(d.error);
-                    setError("Password reset requested. Check your inbox.");
-                  } catch (e) {
-                    setError((e as Error).message);
-                  } finally {
-                    setBusy(false);
-                  }
-                }}
-              >
-                Request password reset
-                <Mail size={17} />
-              </Button>
-            </>
-          )}
+          <p>
+            Signed in as {profile?.full_name}. Manage users and change panel
+            PINs from User management.
+          </p>
+          <Button variant="outline" onClick={onUsers}>
+            Manage users & PINs
+            <ArrowUpRight size={18} />
+          </Button>
         </div>
       </section>
       <section className="records-card">
@@ -1480,17 +1467,19 @@ function SettingsPanel({
           <ol className="setup-list">
             <li>
               Create a Supabase project and run{" "}
-              <code>001_field_operations.sql</code>.
+              <code>001_field_operations.sql</code> and{" "}
+              <code>002_panels_and_pins.sql</code>.
             </li>
             <li>
               Set the environment variables listed in <code>.env.example</code>.
             </li>
             <li>
-              Run <code>npm run bootstrap-admin</code> to provision your first
-              administrator.
+              Run <code>npm run bootstrap-panels</code> to provision panel
+              access.
             </li>
             <li>
-              Configure password reset URLs and deploy to Vercel over HTTPS.
+              Configure your Supabase Auth site URL and deploy to Vercel over
+              HTTPS.
             </li>
           </ol>
           <p className="muted">

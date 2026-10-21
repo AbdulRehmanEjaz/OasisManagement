@@ -45,6 +45,7 @@ export const reportSchema = z
         "Photographs must be distinct",
       ),
     category: z.string().max(100).optional(),
+    site: z.string().trim().max(200).optional(),
     quantity: z.number().positive().max(100000000).optional(),
     unit: z.string().max(50).optional(),
     description: z.string().max(4000).default(""),
@@ -55,8 +56,8 @@ export const reportSchema = z
   .superRefine((v, c) => {
     const error = (message: string) => c.addIssue({ code: "custom", message });
     if (v.kind === "waste") {
-      if (!v.category || !v.quantity || !v.unit)
-        error("Waste type, quantity and unit are required.");
+      if (!v.site || !v.category || !v.quantity || !v.unit)
+        error("Site, waste type, quantity and unit are required.");
       if (v.category === "Other" && !v.description.trim())
         error("Describe the other waste type.");
     } else if (

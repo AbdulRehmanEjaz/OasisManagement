@@ -321,6 +321,7 @@ export default function ReportForm({
           <div className="form-grid">
             {kind === "waste" ? (
               <>
+                {input("site", "Project / site name")}
                 {select("category", "Waste type", opts("waste", wasteTypes))}
                 {input("quantity", "Estimated quantity", true, "number")}
                 {select("unit", "Measurement unit", opts("unit", units))}

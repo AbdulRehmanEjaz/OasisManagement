@@ -1,15 +1,14 @@
-import { configured, requireUser } from "@/lib/supabase";
+import { configured } from "@/lib/supabase";
+import { requirePanel } from "@/lib/panels";
 import { redirect } from "next/navigation";
 import Workspace from "@/components/workspace";
 export const dynamic = "force-dynamic";
 export default async function Home() {
   let profile = null;
-  if (configured()) {
-    try {
-      profile = (await requireUser()).profile;
-    } catch {
-      redirect("/login");
-    }
+  try {
+    profile = await requirePanel();
+  } catch {
+    redirect("/login");
   }
   return (
     <Workspace

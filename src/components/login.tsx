@@ -1,153 +1,126 @@
 "use client";
 import { useState, useEffect } from "react";
-import { Leaf, ArrowUpRight, ShieldCheck, MapPin, Camera } from "lucide-react";
+import {
+  Leaf,
+  ShieldCheck,
+  Eye,
+  HardHat,
+  ArrowRight,
+  LockKeyhole,
+} from "lucide-react";
 import { Button } from "./ui/button";
+import { type Role } from "@/lib/access-policy";
 export default function Login() {
-  const [error, setError] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [reset, setReset] = useState(false);
-  const [requestReset, setRequestReset] = useState(false);
-  useEffect(() => {
-    setReset(new URLSearchParams(location.search).has("reset"));
-  }, []);
-  async function submit(e: React.FormEvent<HTMLFormElement>) {
+  const [role, setRole] = useState<Role>("admin"),
+    [pin, setPin] = useState(""),
+    [error, setError] = useState(""),
+    [busy, setBusy] = useState(false),
+    [ready, setReady] = useState(false);
+  useEffect(() => setReady(true), []);
+  const panels = [
+    {
+      role: "admin" as const,
+      title: "Admin",
+      icon: ShieldCheck,
+      description: "Manage records, users, and PINs.",
+    },
+    {
+      role: "viewer" as const,
+      title: "Viewer",
+      icon: Eye,
+      description: "Read reports and explore maps.",
+    },
+    {
+      role: "supervisor" as const,
+      title: "Supervisor",
+      icon: HardHat,
+      description: "Submit information from the field.",
+    },
+  ];
+  async function submit(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
     setError("");
-    const f = new FormData(e.currentTarget);
     try {
       const r = await fetch("/api/auth", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: reset ? "password" : requestReset ? "reset" : "login",
-          email: f.get("email"),
-          password: f.get("password"),
-        }),
+        body: JSON.stringify({ action: "login", role, pin }),
       });
       const d = await r.json();
       if (!r.ok) throw new Error(d.error);
-      if (requestReset) {
-        setError("If the account exists, a reset link has been requested.");
-      } else location.href = "/";
+      location.href = "/";
     } catch (e) {
       setError((e as Error).message);
+      setPin("");
     } finally {
       setBusy(false);
     }
   }
   return (
-    <main className="login-wrap">
-      <section className="login-story">
-        <div className="brand">
-          <Leaf />
-          <strong>
-            oasis<span>↗</span>
-          </strong>
-          <small>FIELD OPERATIONS</small>
+    <main className="pin-login">
+      <div className="pin-brand">
+        <Leaf size={30} />
+        <strong>
+          oasis<span>↗</span>
+        </strong>
+      </div>
+      <section className="pin-card">
+        <span className="pin-lock">
+          <LockKeyhole size={26} />
+        </span>
+        <h1>Choose your panel</h1>
+        <p>Enter your PIN to access your workspace.</p>
+        <div className="panel-picker" role="group" aria-label="Login panel">
+          {panels.map((p) => (
+            <button
+              key={p.role}
+              className={role === p.role ? "selected" : ""}
+              aria-pressed={role === p.role}
+              disabled={!ready || busy}
+              onClick={() => {
+                setRole(p.role);
+                setPin("");
+                setError("");
+              }}
+            >
+              <p.icon size={24} />
+              <strong>{p.title}</strong>
+              <span>{p.description}</span>
+            </button>
+          ))}
         </div>
-        <div>
-          <span className="eyebrow">CONNECTED IN THE FIELD</span>
-          <h1>
-            Good work.
-            <br />
-            Grounded in{" "}
-            <br />
-            <em>real data.</em>
-          </h1>
-          <p>
-            Your sites, your teams, and every detail.
-            <br />
-            One place to keep operations moving.
-          </p>
-        </div>
-        <div className="login-pills">
-          <span>
-            <MapPin size={17} />
-            Verified locations
-          </span>
-          <span>
-            <Camera size={17} />
-            Photo records
-          </span>
-        </div>
-      </section>
-      <section className="login-card">
-        <ShieldCheck className="login-icon" />
-        <span className="eyebrow">YOUR OPERATIONS WORKSPACE</span>
-        <h2>
-          {reset
-            ? "Set your password"
-            : requestReset
-              ? "Reset your password"
-              : "Welcome back."}
-        </h2>
-        <p>
-          {reset
-            ? "Choose a secure password to continue."
-            : requestReset
-              ? "We will send a secure link to your account email."
-              : "Sign in to manage what matters on site."}
-        </p>
         <form onSubmit={submit}>
-          {!reset && (
-            <label>
-              Email address
-              <input
-                name="email"
-                type="email"
-                autoComplete="email"
-                required
-                placeholder="you@company.com"
-              />
-            </label>
-          )}
-          {!requestReset && (
-            <label>
-              Password
-              <input
-                name="password"
-                type="password"
-                minLength={12}
-                autoComplete={reset ? "new-password" : "current-password"}
-                required
-                placeholder="Enter your password"
-              />
-            </label>
-          )}
+          <label htmlFor="panel-pin">
+            {panels.find((p) => p.role === role)?.title} PIN
+          </label>
+          <input
+            id="panel-pin"
+            className="pin-input"
+            type="password"
+            inputMode="numeric"
+            pattern="[0-9]{3,12}"
+            minLength={3}
+            maxLength={12}
+            autoComplete="off"
+            required
+            disabled={!ready || busy}
+            value={pin}
+            placeholder="Enter PIN"
+            onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
+          />
           {error && (
-            <p className="notice" role="status">
+            <p className="notice error" role="alert">
               {error}
             </p>
           )}
-          <Button disabled={busy}>
+          <Button disabled={!ready || busy || pin.length < 3}>
             {busy
-              ? "Please wait…"
-              : reset
-                ? "Save password"
-                : requestReset
-                  ? "Send reset link"
-                  : "Sign in"}
-            <ArrowUpRight size={18} />
+              ? "Signing in…"
+              : "Open " + panels.find((p) => p.role === role)?.title + " panel"}
+            <ArrowRight size={18} />
           </Button>
         </form>
-        {!reset && (
-          <Button
-            variant="ghost"
-            onClick={() => {
-              setRequestReset(!requestReset);
-              setError("");
-            }}
-          >
-            {requestReset ? "Back to sign in" : "Forgot your password?"}
-          </Button>
-        )}
-        <div className="login-note">
-          <ShieldCheck size={16} />
-          Administrator-created accounts only.
-          <br />
-          Contact your administrator for access.
-        </div>
       </section>
     </main>
   );

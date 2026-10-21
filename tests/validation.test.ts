@@ -16,6 +16,7 @@ const gps = {
 const uuid = "a0000000-0000-4000-8000-000000000001",
   uuid2 = "a0000000-0000-4000-8000-000000000002";
 const waste = {
+  site: "North site",
   kind: "waste",
   idempotency_key: uuid,
   location_id: uuid,

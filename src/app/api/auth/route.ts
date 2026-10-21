@@ -1,64 +1,72 @@
+import { isSameOrigin } from "@/lib/request-security";
 import { NextRequest, NextResponse } from "next/server";
-import { database, configured, requireUser } from "@/lib/supabase";
+import { cookies } from "next/headers";
+import { configured, database, privileged } from "@/lib/supabase";
+import { localPins, sessionCookie } from "@/lib/panels";
+import { productionPinLogin, supabaseSessionId } from "@/lib/pin-auth";
+import { roles } from "@/lib/access-policy";
 import { z } from "zod";
 export async function POST(req: NextRequest) {
   try {
-    if (req.headers.get("origin") !== req.nextUrl.origin)
+    if (!isSameOrigin(req))
       return NextResponse.json({ error: "Invalid origin" }, { status: 403 });
-    if (!configured())
-      return NextResponse.json(
-        { error: "Supabase has not been configured." },
-        { status: 503 },
-      );
+    const input = await req.json();
+    const jar = await cookies();
+    if (input.action === "logout") {
+      if (configured()) {
+        const db = await database();
+        const {
+          data: { session },
+        } = await db.auth.getSession();
+        if (session)
+          await privileged()
+            .from("pin_sessions")
+            .delete()
+            .eq("session_id", supabaseSessionId(session.access_token));
+        await db.auth.signOut();
+      } else {
+        const store = localPins();
+        try {
+          store.logout(jar.get(sessionCookie)?.value || "");
+        } finally {
+          store.close();
+        }
+      }
+      jar.delete(sessionCookie);
+      return NextResponse.json({ ok: true });
+    }
     const v = z
       .object({
-        action: z.enum(["login", "logout", "reset", "password"]),
-        email: z.email().optional(),
-        password: z.string().max(256).optional(),
+        action: z.literal("login"),
+        role: z.enum(roles),
+        pin: z.string().regex(/^\d{3,12}$/),
       })
-      .parse(await req.json());
-    const db = await database();
-    if (v.action === "logout") {
-      await db.auth.signOut();
-      return NextResponse.json({ ok: true });
-    }
-    if (v.action === "reset") {
-      if (!v.email) throw new Error("Email required.");
-      await db.auth.resetPasswordForEmail(v.email, {
-        redirectTo: `${process.env.APP_URL || req.nextUrl.origin}/auth/callback`,
-      });
-      return NextResponse.json({ ok: true });
-    }
-    if (v.action === "password") {
-      await requireUser();
-      z.string().min(12).parse(v.password);
-      const { error } = await db.auth.updateUser({ password: v.password });
-      if (error) throw error;
-    } else {
-      if (!v.email || !v.password)
-        throw new Error("Email and password required.");
-      const { error } = await db.auth.signInWithPassword({
-        email: v.email,
-        password: v.password,
-      });
-      if (error) throw new Error("Email or password is incorrect.");
+      .parse(input);
+    if (configured()) await productionPinLogin(v.role, v.pin);
+    else {
+      const store = localPins();
       try {
-        await requireUser();
-      } catch {
-        await db.auth.signOut();
-        throw new Error("Account is inactive or not provisioned.");
+        const token = store.login(v.role, v.pin);
+        jar.set(sessionCookie, token, {
+          httpOnly: true,
+          sameSite: "strict",
+          secure: process.env.NODE_ENV === "production",
+          path: "/",
+          maxAge: 28800,
+        });
+      } finally {
+        store.close();
       }
     }
     return NextResponse.json({ ok: true });
   } catch (e) {
+    const error =
+      e instanceof z.ZodError
+        ? "Select a panel and enter a valid PIN."
+        : (e as Error).message;
     return NextResponse.json(
-      {
-        error:
-          e instanceof z.ZodError
-            ? "Check your email and password."
-            : (e as Error).message,
-      },
-      { status: 400 },
+      { error },
+      { status: error.includes("Too many") ? 429 : 400 },
     );
   }
 }

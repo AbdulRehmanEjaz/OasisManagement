@@ -1,0 +1,36 @@
+export const roles = ["admin", "viewer", "supervisor"] as const;
+export type Role = (typeof roles)[number];
+export function canReadReports(role: string) {
+  return role === "admin" || role === "viewer";
+}
+export function canSubmit(role: string) {
+  return role === "admin" || role === "supervisor";
+}
+export function canManageUsers(role: string) {
+  return role === "admin";
+}
+export function canReadType(role: string, type: string) {
+  return (
+    role === "admin" ||
+    (role === "viewer" &&
+      ["overview", "waste", "facilities", "inspections", "options"].includes(
+        type,
+      )) ||
+    (role === "supervisor" && ["facilities", "options"].includes(type))
+  );
+}
+export function allowedViews(role: string) {
+  return role === "admin"
+    ? [
+        "dashboard",
+        "waste",
+        "facilities",
+        "inspections",
+        "notifications",
+        "users",
+        "settings",
+      ]
+    : role === "viewer"
+      ? ["dashboard", "waste", "facilities", "inspections"]
+      : ["dashboard"];
+}
