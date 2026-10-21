@@ -4,7 +4,6 @@ import { cookies } from "next/headers";
 import { configured, database, privileged } from "@/lib/supabase";
 import { localPins, sessionCookie } from "@/lib/panels";
 import { productionPinLogin, supabaseSessionId } from "@/lib/pin-auth";
-import { roles } from "@/lib/access-policy";
 import { z } from "zod";
 export async function POST(req: NextRequest) {
   try {
@@ -38,15 +37,14 @@ export async function POST(req: NextRequest) {
     const v = z
       .object({
         action: z.literal("login"),
-        role: z.enum(roles),
         pin: z.string().regex(/^\d{3,12}$/),
       })
       .parse(input);
-    if (configured()) await productionPinLogin(v.role, v.pin);
+    if (configured()) await productionPinLogin(v.pin);
     else {
       const store = localPins();
       try {
-        const token = store.login(v.role, v.pin);
+        const token = store.login(v.pin);
         jar.set(sessionCookie, token, {
           httpOnly: true,
           sameSite: "strict",
@@ -61,9 +59,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true });
   } catch (e) {
     const error =
-      e instanceof z.ZodError
-        ? "Select a panel and enter a valid PIN."
-        : (e as Error).message;
+      e instanceof z.ZodError ? "Enter a valid PIN." : (e as Error).message;
     return NextResponse.json(
       { error },
       { status: error.includes("Too many") ? 429 : 400 },

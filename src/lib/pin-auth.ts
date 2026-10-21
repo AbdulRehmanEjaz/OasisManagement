@@ -2,7 +2,6 @@ import "server-only";
 import { createHmac } from "node:crypto";
 import { privileged, database } from "./supabase";
 import { checkPin } from "./pin-store";
-import type { Role } from "./access-policy";
 export function pinFingerprint(pin: string) {
   if (
     !process.env.PIN_LOOKUP_SECRET ||
@@ -21,11 +20,11 @@ export function supabaseSessionId(token: string) {
   );
   return String(payload.session_id || "");
 }
-export async function productionPinLogin(role: Role, pin: string) {
+export async function productionPinLogin(pin: string) {
   const service = privileged();
   const { data: allowed, error: limitError } = await service.rpc(
     "pin_login_gate",
-    { p_role: role },
+    { p_role: "login" },
   );
   if (limitError) throw limitError;
   if (!allowed) throw new Error("Too many attempts. Try again in 5 minutes.");
@@ -50,10 +49,9 @@ export async function productionPinLogin(role: Role, pin: string) {
     !profile ||
     !profile.is_active ||
     profile.deleted_at ||
-    profile.role !== role ||
     !checkPin(pin, credential.pin_hash)
   )
-    throw new Error("Incorrect PIN for this panel.");
+    throw new Error("Incorrect PIN. Please try again.");
   const { data: link, error: linkError } =
     await service.auth.admin.generateLink({
       type: "magiclink",
@@ -76,5 +74,5 @@ export async function productionPinLogin(role: Role, pin: string) {
     await db.auth.signOut();
     throw sessionError;
   }
-  await service.from("pin_login_limits").delete().eq("role", role);
+  await service.rpc("pin_login_succeeded");
 }

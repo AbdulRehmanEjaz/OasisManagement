@@ -1,42 +1,13 @@
 "use client";
 import { useState, useEffect } from "react";
-import {
-  Leaf,
-  ShieldCheck,
-  Eye,
-  HardHat,
-  ArrowRight,
-  LockKeyhole,
-} from "lucide-react";
+import { Leaf, ArrowRight, LockKeyhole } from "lucide-react";
 import { Button } from "./ui/button";
-import { type Role } from "@/lib/access-policy";
 export default function Login() {
-  const [role, setRole] = useState<Role>("admin"),
-    [pin, setPin] = useState(""),
+  const [pin, setPin] = useState(""),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false),
     [ready, setReady] = useState(false);
   useEffect(() => setReady(true), []);
-  const panels = [
-    {
-      role: "admin" as const,
-      title: "Admin",
-      icon: ShieldCheck,
-      description: "Manage records, users, and PINs.",
-    },
-    {
-      role: "viewer" as const,
-      title: "Viewer",
-      icon: Eye,
-      description: "Read reports and explore maps.",
-    },
-    {
-      role: "supervisor" as const,
-      title: "Supervisor",
-      icon: HardHat,
-      description: "Submit information from the field.",
-    },
-  ];
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
@@ -45,7 +16,7 @@ export default function Login() {
       const r = await fetch("/api/auth", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "login", role, pin }),
+        body: JSON.stringify({ action: "login", pin }),
       });
       const d = await r.json();
       if (!r.ok) throw new Error(d.error);
@@ -53,7 +24,6 @@ export default function Login() {
     } catch (e) {
       setError((e as Error).message);
       setPin("");
-    } finally {
       setBusy(false);
     }
   }
@@ -69,31 +39,10 @@ export default function Login() {
         <span className="pin-lock">
           <LockKeyhole size={26} />
         </span>
-        <h1>Choose your panel</h1>
-        <p>Enter your PIN to access your workspace.</p>
-        <div className="panel-picker" role="group" aria-label="Login panel">
-          {panels.map((p) => (
-            <button
-              key={p.role}
-              className={role === p.role ? "selected" : ""}
-              aria-pressed={role === p.role}
-              disabled={!ready || busy}
-              onClick={() => {
-                setRole(p.role);
-                setPin("");
-                setError("");
-              }}
-            >
-              <p.icon size={24} />
-              <strong>{p.title}</strong>
-              <span>{p.description}</span>
-            </button>
-          ))}
-        </div>
+        <h1>Welcome to Oasis</h1>
+        <p>Enter your PIN to continue.</p>
         <form onSubmit={submit}>
-          <label htmlFor="panel-pin">
-            {panels.find((p) => p.role === role)?.title} PIN
-          </label>
+          <label htmlFor="panel-pin">PIN</label>
           <input
             id="panel-pin"
             className="pin-input"
@@ -115,9 +64,7 @@ export default function Login() {
             </p>
           )}
           <Button disabled={!ready || busy || pin.length < 3}>
-            {busy
-              ? "Signing in…"
-              : "Open " + panels.find((p) => p.role === role)?.title + " panel"}
+            {busy ? "Signing in…" : "Sign in"}
             <ArrowRight size={18} />
           </Button>
         </form>

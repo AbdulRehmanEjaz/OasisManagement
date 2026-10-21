@@ -14,6 +14,7 @@ test("Three-panel PostgreSQL access policies and privacy", async (t) => {
     for (const name of [
       "001_field_operations.sql",
       "002_panels_and_pins.sql",
+      "003_pin_only_login.sql",
     ]) {
       const sql = (
         await readFile(
@@ -242,6 +243,67 @@ test("Three-panel PostgreSQL access policies and privacy", async (t) => {
               )
             ).rows.length,
             1,
+          );
+        });
+      },
+    );
+    await t.test(
+      "PIN-only login limits are shared and successful login preserves previous failures",
+      async () => {
+        for (let n = 0; n < 4; n++)
+          assert.equal(
+            (
+              await db.query<{ allowed: boolean }>(
+                "select pin_login_gate('login') as allowed",
+              )
+            ).rows[0].allowed,
+            true,
+          );
+        assert.equal(
+          (
+            await db.query<{ allowed: boolean }>(
+              "select pin_login_gate('login') as allowed",
+            )
+          ).rows[0].allowed,
+          true,
+        );
+        await db.query("select pin_login_succeeded()");
+        assert.equal(
+          (
+            await db.query<{ hits: number }>(
+              "select hits from pin_login_limits where role='login'",
+            )
+          ).rows[0].hits,
+          4,
+        );
+        assert.equal(
+          (
+            await db.query<{ allowed: boolean }>(
+              "select pin_login_gate('login') as allowed",
+            )
+          ).rows[0].allowed,
+          true,
+        );
+        assert.equal(
+          (
+            await db.query<{ allowed: boolean }>(
+              "select pin_login_gate('login') as allowed",
+            )
+          ).rows[0].allowed,
+          false,
+        );
+        assert.equal(
+          (
+            await db.query<{ allowed: boolean }>(
+              "select pin_login_gate('admin') as allowed",
+            )
+          ).rows[0].allowed,
+          false,
+        );
+        await asUser(admin, async () => {
+          await assert.rejects(
+            db.query("select pin_login_succeeded()"),
+            /permission denied/,
           );
         });
       },

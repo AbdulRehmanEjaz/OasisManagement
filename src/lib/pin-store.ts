@@ -83,17 +83,18 @@ export class PinStore {
       .run(id, name, role, hashPin(pin), new Date().toISOString());
     return id;
   }
-  login(role: Role, pin: string, now = Date.now()) {
+  login(pin: string, now = Date.now()) {
+    const bucket = "login";
     const row = this.db
       .prepare("SELECT hits,expires_at FROM attempts WHERE role=?")
-      .get(role);
+      .get(bucket);
     if (row && Number(row.expires_at) > now && Number(row.hits) >= 5)
       throw new Error("Too many attempts. Try again in 5 minutes.");
     const hits = row && Number(row.expires_at) > now ? Number(row.hits) + 1 : 1;
     this.db
       .prepare("INSERT OR REPLACE INTO attempts VALUES(?,?,?)")
       .run(
-        role,
+        bucket,
         hits,
         row && Number(row.expires_at) > now
           ? Number(row.expires_at)
@@ -101,12 +102,14 @@ export class PinStore {
       );
     const match = this.db
       .prepare(
-        "SELECT * FROM accounts WHERE role=? AND is_active=1 AND deleted_at IS NULL",
+        "SELECT * FROM accounts WHERE is_active=1 AND deleted_at IS NULL",
       )
-      .all(role)
+      .all()
       .find((a) => checkPin(pin, String(a.pin_hash)));
-    if (!match) throw new Error("Incorrect PIN for this panel.");
-    this.db.prepare("DELETE FROM attempts WHERE role=?").run(role);
+    if (!match) throw new Error("Incorrect PIN. Please try again.");
+    this.db
+      .prepare("UPDATE attempts SET hits=max(0,hits-1) WHERE role=?")
+      .run(bucket);
     const token = randomBytes(32).toString("hex");
     this.db.prepare("DELETE FROM sessions WHERE expires_at<=?").run(now);
     this.db
@@ -168,7 +171,7 @@ export class PinStore {
         )
         .run(new Date().toISOString(), id);
     this.db.prepare("DELETE FROM sessions WHERE user_id=?").run(id);
-    this.db.prepare("DELETE FROM attempts WHERE role=?").run(account.role);
+    this.db.prepare("DELETE FROM attempts WHERE role=?").run("login");
   }
   close() {
     this.db.close();

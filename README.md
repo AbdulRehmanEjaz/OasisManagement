@@ -1,5 +1,7 @@
 # Oasis · Field Operations
 
+Enter one PIN to sign in. The server identifies the account and opens its panel automatically; there is no role selector.
+
 Three PIN-protected panels in one mobile-first Next.js application:
 
 | Panel      | Access                                                                                                                                                       |
@@ -26,7 +28,7 @@ Initial PINs seed the local accounts only once. Restarting the app does not over
 
 ## Production Supabase setup
 
-1. Create a Supabase project. On a fresh database apply `supabase/migrations/001_field_operations.sql`, then `002_panels_and_pins.sql`. Existing installations of migration 001 should apply only migration 002.
+1. Create a Supabase project. On a fresh database apply `supabase/migrations/001_field_operations.sql`, then `002_panels_and_pins.sql` and `003_pin_only_login.sql`. Existing installations should apply only migrations they have not yet applied.
 2. Set `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, and the server-only `SUPABASE_SERVICE_ROLE_KEY`. Disable public Auth signups. Set the Supabase Auth Site URL to the deployment domain.
 3. Generate a permanent random `PIN_LOOKUP_SECRET` of at least 32 characters and store it only in the server environment. Supply the three distinct `INITIAL_*_PIN` values privately.
 4. Run `npm run bootstrap-panels` from a trusted environment with those variables. This provisions the three roles, or attaches PIN access to an existing first account of each role. It refuses to overwrite existing PIN credentials, making reruns safe. It does not print PINs or send invitation emails. Clear initial PIN variables after cloud provisioning.
@@ -59,7 +61,7 @@ The database's authoritative GPS threshold is `app_settings.gps_accuracy_meters`
 
 ## Security and behavior
 
-- HttpOnly cookies, same-origin write checks, eight-hour PIN sessions, and five login attempts per panel per five-minute window. Unknown or inactive accounts cannot sign in.
+- HttpOnly cookies, same-origin write checks, eight-hour PIN sessions, and five login attempts per five-minute window. Unknown or inactive accounts cannot sign in.
 - PIN changes, deactivation and removal invalidate sessions. Admins cannot deactivate or remove themselves. Removed accounts lose access immediately; historical field records retain their references.
 - RLS protects records independently of navigation. Viewers cannot query underlying report/user/photo tables for others' identities. A narrowly scoped database function exposes only permitted report/map fields and photographs. Supervisors receive only minimal authorized facility choices and cannot read submitted records, even their own.
 - The submission RPC checks the authenticated role, field validation, distinct owned uploads, confirmed fresh GPS and idempotency atomically. Sequential COSA/OFT identifiers are generated in PostgreSQL. Rollback/deletion gaps are normal.
@@ -79,8 +81,8 @@ npm test
 npm run build
 ```
 
-Tests cover PIN hashing, persistence, throttling, expiry and revocation, the role matrix, GPS validation, upload ownership, atomic submissions, idempotency and both PostgreSQL migrations in PGlite. Database tests explicitly verify Viewer privacy, Supervisor submit-only restrictions and PIN-version session invalidation. Legacy migration-001 tests remain as migration regression coverage; migration 002 supersedes their old Supervisor read policies.
+Tests cover PIN hashing, persistence, throttling, expiry and revocation, the role matrix, GPS validation, upload ownership, atomic submissions, idempotency and the PostgreSQL migrations in PGlite. Database tests explicitly verify Viewer privacy, Supervisor submit-only restrictions and PIN-version session invalidation. Legacy migration-001 tests remain as migration regression coverage; migration 002 supersedes their old Supervisor read policies.
 
-Import the GitHub repository into Vercel as a Next.js project, configure the production environment, apply both migrations and provision panels before operational use. Build with `npm run build` and serve over HTTPS. The local SQLite access store is development-only and is not a cloud database substitute.
+Import the GitHub repository into Vercel as a Next.js project, configure the production environment, apply the migrations and provision panels before operational use. Build with `npm run build` and serve over HTTPS. The local SQLite access store is development-only and is not a cloud database substitute.
 
 Live Supabase sessions, ImgBB, Resend and Android/iPhone device GPS require external setup and have not been independently verified without those accounts. Local PIN logins and protected API role restrictions are checked separately from those integrations.

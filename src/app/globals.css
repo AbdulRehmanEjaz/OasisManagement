@@ -3,16 +3,17 @@
   --font-sans: "Segoe UI", Arial, sans-serif;
 }
 :root {
-  --bg: #c6c2c0;
-  --ink: #161918;
-  --muted: #858a86;
-  --teal: #008b76;
-  --teal-dark: #124c40;
-  --soft: #f1f2ef;
-  --line: #e8eae5;
-  --danger: #b23d35;
+  --bg: #f3e8d1;
+  --ink: #193b29;
+  --muted: #64765d;
+  --teal: #237c46;
+  --teal-dark: #154d30;
+  --soft: #f7f0df;
+  --line: #e4dcc7;
+  --danger: #b54532;
   --radius: 26px;
   color-scheme: light;
+  --surface: #fffdf7;
 }
 * {
   box-sizing: border-box;
@@ -75,7 +76,7 @@ textarea {
   padding: 11px 13px;
   border: 1px solid #d9ded8;
   border-radius: 12px;
-  background: #fafbf9;
+  background: #fffdf7;
   color: var(--ink);
   outline-offset: 2px;
 }
@@ -120,7 +121,7 @@ svg {
   flex-shrink: 0;
 }
 ::selection {
-  background: #c2e8dc;
+  background: #d5eab1;
 }
 .btn {
   display: inline-flex;
@@ -141,14 +142,14 @@ svg {
   color: white;
 }
 .btn-primary:hover {
-  background: #007462;
+  background: #195f35;
 }
 .btn-secondary {
-  background: #eeefeb;
+  background: #edf4df;
   color: var(--ink);
 }
 .btn-secondary:hover {
-  background: #e2e5de;
+  background: #dfebcb;
 }
 .btn-outline {
   background: transparent;
@@ -156,7 +157,7 @@ svg {
   border: 1px solid #dce0d9;
 }
 .btn-outline:hover {
-  background: #f1f4ed;
+  background: #eef2df;
 }
 .btn-danger {
   background: #f8eae6;
@@ -167,7 +168,7 @@ svg {
   color: var(--ink);
 }
 .btn-ghost:hover {
-  background: #eef1eb;
+  background: #ecf2dc;
 }
 .btn-sm {
   min-height: 44px;
@@ -194,7 +195,7 @@ svg {
   gap: 8px;
   font-size: 14px;
   letter-spacing: 0.4px;
-  background: #f0f2ed;
+  background: #eef1dc;
   padding: 7px 11px;
   border-radius: 30px;
   white-space: nowrap;
@@ -258,7 +259,7 @@ svg {
   padding-left: 15px;
   min-width: 160px;
   flex: 1;
-  color: #687561;
+  color: #5c6e50;
 }
 .search-field input {
   border: 0;
@@ -286,7 +287,7 @@ svg {
   justify-content: center;
 }
 .segmented > button.selected {
-  background: #fff;
+  background: var(--surface);
   color: #263524;
   box-shadow: 0 1px 4px #2030100a;
 }
@@ -325,9 +326,9 @@ table {
   text-align: left;
 }
 th {
-  background: #f7f8f4;
+  background: #faf3e4;
   font-size: 14px;
-  color: #687561;
+  color: #5c6e50;
   text-transform: uppercase;
   letter-spacing: 0.6px;
   padding: 13px 18px;
@@ -346,7 +347,7 @@ td strong {
 }
 td small {
   font-size: 14px;
-  color: #687561;
+  color: #5c6e50;
   margin-top: 4px;
 }
 tbody tr:hover {
@@ -367,7 +368,7 @@ tbody tr:hover {
   justify-content: space-between;
   align-items: center;
   padding: 12px 22px;
-  color: #687561;
+  color: #5c6e50;
   font-size: 14px;
 }
 .pagination > div {
@@ -382,7 +383,7 @@ tbody tr:hover {
   text-align: center;
   padding: 65px 25px;
   min-height: 270px;
-  color: #687561;
+  color: #5c6e50;
 }
 .empty-state h3 {
   font-size: 17px;
@@ -392,7 +393,7 @@ tbody tr:hover {
 }
 .empty-state p {
   font-size: 14px;
-  color: #687561;
+  color: #5c6e50;
   max-width: 360px;
   line-height: 1.8;
 }
@@ -411,8 +412,8 @@ tbody tr:hover {
   white-space: nowrap;
 }
 .status.good {
-  background: #e8f3e9;
-  color: #4f794c;
+  background: #e0f0c9;
+  color: #376b34;
 }
 .status.bad {
   background: #faede7;
@@ -437,7 +438,7 @@ tbody tr:hover {
 }
 .user-row small {
   font-size: 14px;
-  color: #687561;
+  color: #5c6e50;
   margin-top: 4px;
 }
 .notification-list > div {
@@ -457,7 +458,7 @@ tbody tr:hover {
   font-size: 14px;
 }
 .notification-list small {
-  color: #687561;
+  color: #5c6e50;
   margin-top: 5px;
   font-size: 14px;
 }
@@ -466,7 +467,7 @@ tbody tr:hover {
 }
 .delivery-note {
   font-size: 14px;
-  color: #687561;
+  color: #5c6e50;
   padding: 0 24px 18px;
 }
 .delivery-row {
@@ -484,7 +485,7 @@ tbody tr:hover {
 }
 .delivery-row small {
   margin-top: 4px;
-  color: #687561;
+  color: #5c6e50;
   font-size: 14px;
 }
 .settings-grid {
@@ -498,7 +499,7 @@ tbody tr:hover {
 .settings-body > p {
   font-size: 14px;
   line-height: 1.8;
-  color: #687561;
+  color: #5c6e50;
   margin: 15px 0;
 }
 .service-row {
@@ -523,7 +524,7 @@ tbody tr:hover {
   align-items: center;
   justify-content: space-between;
   font-size: 14px;
-  color: #687561;
+  color: #5c6e50;
 }
 .wide-settings {
   grid-column: 1/-1;
@@ -553,7 +554,7 @@ tbody tr:hover {
 }
 .options-list small {
   font-size: 14px;
-  color: #687561;
+  color: #5c6e50;
   text-transform: uppercase;
 }
 .modal {
@@ -562,7 +563,7 @@ tbody tr:hover {
   padding: 0;
   width: min(540px, calc(100% - 28px));
   max-height: calc(100dvh - 40px);
-  background: #fff;
+  background: var(--surface);
   color: var(--ink);
   box-shadow: 0 25px 100px #09251a33;
   overscroll-behavior: contain;
@@ -583,7 +584,7 @@ tbody tr:hover {
   top: 0;
   padding: 19px 25px;
   border-bottom: 1px solid var(--line);
-  background: #fff;
+  background: var(--surface);
   z-index: 1001;
 }
 .modal > header h2 {
@@ -600,7 +601,7 @@ tbody tr:hover {
 .form-intro p {
   font-size: 14px;
   line-height: 1.8;
-  color: #687561;
+  color: #5c6e50;
   margin: 12px 0;
 }
 .form-section {
@@ -622,14 +623,14 @@ tbody tr:hover {
   background: #eff3e9;
   border-radius: 10px;
   font-size: 14px;
-  color: #687561;
+  color: #5c6e50;
 }
 .section-label h3 {
   font-size: 15px;
 }
 .section-label p {
   font-size: 14px;
-  color: #687561;
+  color: #5c6e50;
   margin-top: 4px;
 }
 .form-grid {
@@ -647,7 +648,7 @@ tbody tr:hover {
 }
 .photo-controls > span {
   font-size: 14px;
-  color: #687561;
+  color: #5c6e50;
   margin-left: auto;
 }
 .photo-grid {
@@ -673,7 +674,7 @@ tbody tr:hover {
   top: 7px;
   right: 7px;
   border-radius: 9px;
-  background: #fff;
+  background: var(--surface);
   width: 32px;
   height: 32px;
   display: flex;
@@ -700,7 +701,7 @@ tbody tr:hover {
 }
 .photo-state small {
   font-size: 14px;
-  color: #687561;
+  color: #5c6e50;
 }
 .photo-state progress {
   display: block;
@@ -717,14 +718,14 @@ tbody tr:hover {
   gap: 12px;
   padding: 15px 17px;
   background: #fff8e5;
-  color: #687561;
+  color: #5c6e50;
   border-radius: 15px;
   margin-bottom: 20px;
   overflow-wrap: anywhere;
 }
 .gps-state.verified {
-  background: #eaf4e8;
-  color: #5b7f49;
+  background: #e2f2cf;
+  color: #3e713b;
 }
 .gps-state strong {
   font-size: 14px;
@@ -750,7 +751,7 @@ tbody tr:hover {
   padding-top: 20px;
 }
 .form-footer > small {
-  color: #687561;
+  color: #5c6e50;
   font-size: 14px;
   max-width: 240px;
 }
@@ -777,7 +778,7 @@ tbody tr:hover {
 }
 .map-meta p {
   font-size: 14px;
-  color: #687561;
+  color: #5c6e50;
   margin: 7px 0;
 }
 .map-meta a {
@@ -815,7 +816,7 @@ tbody tr:hover {
 }
 .choice-card small {
   font-size: 14px;
-  color: #687561;
+  color: #5c6e50;
   margin-top: 4px;
 }
 .photo-viewer {
@@ -845,7 +846,7 @@ tbody tr:hover {
 }
 .detail-heading p {
   font-size: 14px;
-  color: #687561;
+  color: #5c6e50;
 }
 .detail-actions {
   display: flex;
@@ -861,7 +862,7 @@ tbody tr:hover {
 }
 .detail-grid dt {
   font-size: 14px;
-  color: #687561;
+  color: #5c6e50;
   margin-bottom: 5px;
 }
 .detail-grid dd {
@@ -932,7 +933,7 @@ tbody tr:hover {
 }
 .detail-history small {
   font-size: 14px;
-  color: #687561;
+  color: #5c6e50;
   margin: 5px 0;
 }
 .detail-history p {
@@ -960,7 +961,7 @@ tbody tr:hover {
   height: 75px;
   border-radius: 50%;
   color: var(--teal);
-  background: #e7f4e5;
+  background: #def0c9;
   margin: 0 auto 20px;
 }
 .success-content h2 {
@@ -968,7 +969,7 @@ tbody tr:hover {
 }
 .success-content p {
   font-size: 14px;
-  color: #687561;
+  color: #5c6e50;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1038,7 +1039,7 @@ tbody tr:hover {
   gap: 7px;
 }
 .login-card {
-  background: white;
+  background: var(--surface);
   border-radius: 30px;
   padding: 45px 38px;
 }
@@ -1060,7 +1061,7 @@ tbody tr:hover {
   margin: 10px 0;
 }
 .login-card > p {
-  color: #687561;
+  color: #5c6e50;
   font-size: 14px;
   margin-bottom: 28px;
 }
@@ -1073,14 +1074,14 @@ tbody tr:hover {
   display: flex;
   margin: 10px auto;
   font-size: 14px;
-  color: #687561;
+  color: #5c6e50;
 }
 .login-note {
   border-top: 1px solid var(--line);
   padding-top: 22px;
   margin-top: 18px;
   text-align: center;
-  color: #687561;
+  color: #5c6e50;
   font-size: 14px;
   line-height: 1.8;
 }
@@ -1113,12 +1114,12 @@ tbody tr:hover {
   min-height: 84px;
   padding: 22px 26px;
   border-radius: 25px;
-  background: #080b09;
+  background: #123e28;
   color: white;
   text-align: left;
 }
 .brand > svg {
-  color: #f0c45c;
+  color: #edbe50;
 }
 .brand strong {
   font-size: 36px;
@@ -1127,7 +1128,7 @@ tbody tr:hover {
   letter-spacing: -1.8px;
 }
 .brand strong span {
-  color: #efc259;
+  color: #edbe50;
   font-size: 30px;
   margin-left: 5px;
 }
@@ -1139,7 +1140,7 @@ tbody tr:hover {
   align-items: center;
   gap: 24px;
   padding: 18px 26px;
-  background: white;
+  background: var(--surface);
   border-radius: 25px;
 }
 .workspace-label {
@@ -1164,7 +1165,7 @@ tbody tr:hover {
 }
 .top-date {
   font-size: 14px;
-  color: #69726c;
+  color: #627155;
 }
 .top-actions {
   display: flex;
@@ -1179,8 +1180,8 @@ tbody tr:hover {
   width: 44px;
   height: 44px;
   border-radius: 50%;
-  background: #e9f0e8;
-  color: #2e6150;
+  background: #e3efce;
+  color: #32683b;
   font-size: 14px;
   font-weight: 600;
   flex-shrink: 0;
@@ -1192,14 +1193,14 @@ tbody tr:hover {
 }
 .user-label small {
   font-size: 13px;
-  color: #69726c;
+  color: #627155;
   margin-top: 2px;
 }
 .menu-toggle {
   display: none;
 }
 .sidebar-main {
-  background: #f4f4f0;
+  background: #fffaf0;
   padding: 18px 14px;
   border-radius: 25px;
   min-height: 540px;
@@ -1223,13 +1224,13 @@ tbody tr:hover {
   text-align: left;
   font-size: 15px;
   font-weight: 500;
-  color: #59645d;
+  color: #506747;
 }
 .sidebar nav button:hover {
-  background: #e8ece4;
+  background: #e7efd8;
 }
 .sidebar nav button.active {
-  background: #171b17;
+  background: #195d3b;
   color: white;
 }
 .sidebar nav svg {
@@ -1239,7 +1240,7 @@ tbody tr:hover {
   width: 5px;
   height: 5px;
   border-radius: 50%;
-  background: #f0c45c;
+  background: #edbe50;
   margin-left: auto;
 }
 .sidebar-bottom {
@@ -1280,7 +1281,7 @@ tbody tr:hover {
 .page-heading p {
   margin-top: 10px;
   font-size: 16px;
-  color: #59635d;
+  color: #556849;
   line-height: 1.6;
 }
 .heading-actions {
@@ -1294,8 +1295,8 @@ tbody tr:hover {
   border-radius: 17px;
   padding: 15px 18px;
   margin-bottom: 28px;
-  background: #f0f3e9;
-  color: #4d6245;
+  background: #fff2cb;
+  color: #75521e;
 }
 .setup-banner > div {
   flex: 1;
@@ -1308,7 +1309,7 @@ tbody tr:hover {
 .setup-banner span {
   display: block;
   margin-top: 3px;
-  color: #68755f;
+  color: #806334;
   font-size: 14px;
 }
 .setup-banner .btn {
@@ -1324,7 +1325,7 @@ tbody tr:hover {
 }
 .stat-card {
   min-width: 0;
-  background: white;
+  background: var(--surface);
   border-radius: 23px;
   padding: 22px;
 }
@@ -1360,20 +1361,20 @@ tbody tr:hover {
   border-radius: 12px;
 }
 .mint {
-  background: #e8f2e8;
-  color: #527653;
+  background: #dcf0cc;
+  color: #357044;
 }
 .sand {
-  background: #fff3d4;
-  color: #9b762b;
+  background: #ffe3a8;
+  color: #946222;
 }
 .lilac {
-  background: #eeeaf4;
-  color: #7f6e99;
+  background: #f7dfca;
+  color: #a35d36;
 }
 .gray {
-  background: #f0f2ed;
-  color: #6a7761;
+  background: #eef1dc;
+  color: #657c49;
 }
 .modules-grid {
   display: grid;
@@ -1387,7 +1388,7 @@ tbody tr:hover {
   min-width: 0;
   padding: 28px;
   border-radius: 28px;
-  background: white;
+  background: var(--surface);
 }
 .module-header {
   display: flex;
@@ -1465,7 +1466,7 @@ tbody tr:hover {
 .activity-card,
 .records-card {
   border-radius: 25px;
-  background: white;
+  background: var(--surface);
   overflow: hidden;
 }
 .card-heading {
@@ -1498,7 +1499,7 @@ tbody tr:hover {
   background: transparent;
 }
 .activity-list > button:hover {
-  background: #fafbf7;
+  background: #fffdf6;
 }
 .activity-icon {
   display: inline-flex;
@@ -1518,7 +1519,7 @@ tbody tr:hover {
 }
 .activity-list small {
   font-size: 14px;
-  color: #687561;
+  color: #5c6e50;
   margin-top: 4px;
 }
 .activity-list time {
@@ -2239,7 +2240,7 @@ tbody tr:hover {
 
 .pin-login {
   min-height: 100dvh;
-  max-width: 1000px;
+  max-width: 500px;
   margin: 0 auto;
   padding: 48px 24px;
   display: flex;
@@ -2252,22 +2253,22 @@ tbody tr:hover {
   display: flex;
   align-items: center;
   gap: 12px;
-  color: #14231a;
+  color: #174b2c;
 }
 .pin-brand > svg {
-  color: #8b6e25;
+  color: #a86d19;
 }
 .pin-brand strong {
   font-size: 38px;
   letter-spacing: -2px;
 }
 .pin-brand strong span {
-  color: #8b6e25;
+  color: #a86d19;
   margin-left: 5px;
 }
 .pin-card {
   width: 100%;
-  background: white;
+  background: var(--surface);
   padding: 40px;
   border-radius: 30px;
 }
@@ -2278,7 +2279,7 @@ tbody tr:hover {
   height: 56px;
   width: 56px;
   border-radius: 18px;
-  background: #e9f2e7;
+  background: #e7f3d4;
   color: var(--teal);
   margin-bottom: 22px;
 }
@@ -2293,40 +2294,9 @@ tbody tr:hover {
   font-size: 16px;
   margin-top: 10px;
 }
-.panel-picker {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 14px;
-  margin: 30px 0;
-}
-.panel-picker button {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  min-height: 168px;
-  background: #f4f5f0;
-  border: 2px solid transparent;
-  border-radius: 19px;
-  padding: 22px;
-  color: #647260;
-  text-align: left;
-}
-.panel-picker button.selected {
-  border-color: var(--teal);
-  background: #edf5eb;
-  color: #1d5b46;
-}
-.panel-picker strong {
-  font-size: 18px;
-  color: #233525;
-  font-weight: 600;
-}
-.panel-picker span {
-  font-size: 14px;
-  line-height: 1.6;
-}
 .pin-card form {
-  max-width: 410px;
+  max-width: none;
+  margin-top: 28px;
 }
 .pin-card form > label {
   margin-bottom: 8px;
@@ -2335,7 +2305,7 @@ tbody tr:hover {
   min-height: 56px;
   font-size: 22px;
   letter-spacing: 4px;
-  background: #fafbf7;
+  background: #fffdf6;
 }
 .pin-input::placeholder {
   font-size: 16px;
@@ -2391,28 +2361,6 @@ tbody tr:hover {
   .pin-card h1 {
     font-size: 28px;
   }
-  .panel-picker {
-    grid-template-columns: 1fr;
-    gap: 10px;
-    margin: 24px 0;
-  }
-  .panel-picker button {
-    display: grid;
-    grid-template-columns: 28px 1fr;
-    gap: 5px 12px;
-    min-height: 90px;
-    padding: 17px;
-  }
-  .panel-picker svg {
-    grid-row: 1/3;
-    align-self: center;
-  }
-  .panel-picker strong {
-    font-size: 17px;
-  }
-  .panel-picker span {
-    font-size: 14px;
-  }
   .mobile-bottom.submit-navigation {
     grid-template-columns: repeat(3, 1fr);
   }
@@ -2435,4 +2383,77 @@ tbody tr:hover {
   .access-note {
     padding: 0 20px 20px;
   }
+}
+
+/* AlUla oasis: palm canopy, date gold, sunlit sand and sandstone. */
+.waste-module {
+  background: #17683c;
+  color: #fffdf4;
+}
+.waste-module .module-icon {
+  background: #f1c95b;
+  color: #2d532b;
+}
+.waste-module .pill {
+  background: #347b4e;
+  color: #f5f8e8;
+}
+.waste-module .module-copy p {
+  color: #deedd7;
+}
+.waste-module footer .btn-primary {
+  background: #f1c95b;
+  color: #25472b;
+}
+.waste-module footer .btn-primary:hover {
+  background: #f7d77e;
+}
+.waste-module footer .btn-ghost {
+  color: #fffdf4;
+  border-color: #6ca67d;
+}
+.waste-module footer .btn-ghost:hover {
+  background: #2b7b4e;
+}
+.facility-module {
+  background: #f9dfb3;
+}
+.facility-module .module-icon {
+  background: #edbd72;
+  color: #7a4c25;
+}
+.facility-module .pill {
+  background: #f1c88a;
+  color: #76512c;
+}
+.facility-module .module-copy h2 {
+  color: #513d26;
+}
+.facility-module .module-copy p {
+  color: #715b3c;
+}
+.facility-module footer .btn-primary {
+  background: #b34e2f;
+  color: white;
+}
+.facility-module footer .btn-primary:hover {
+  background: #923d25;
+}
+.facility-module footer .btn-ghost {
+  color: #6b4628;
+  border-color: #d5b17c;
+}
+.facility-module footer .btn-ghost:hover {
+  background: #f1cf97;
+}
+.pin-card {
+  border: 1px solid #e8ddc5;
+  box-shadow: 0 16px 48px #74541b0b;
+}
+.pin-brand > svg {
+  color: #267545;
+}
+.pin-lock {
+  background: #e1f0cc;
+  color: #237c46;
 }
