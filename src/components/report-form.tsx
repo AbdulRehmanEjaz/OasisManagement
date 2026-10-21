@@ -15,6 +15,7 @@ import {
   units,
   statuses,
   facilityCategories,
+  validateGPS,
 } from "@/lib/validation";
 import Modal from "./modal";
 import PhotoInput, { type Photo } from "./photo-input";
@@ -114,8 +115,8 @@ export default function ReportForm({
     setGps(null);
     setConfirmed(false);
     setMapViewed(false);
-    if (!enabled) {
-      setError("Connect Supabase before capturing a report location.");
+    if (!window.isSecureContext) {
+      setError("Location access requires HTTPS or localhost. Open the dashboard using a secure connection.");
       return;
     }
     if (!navigator.geolocation) {
@@ -139,16 +140,19 @@ export default function ReportForm({
       try {
         if (!position)
           throw new Error(message || "GPS timed out. Move outdoors and retry.");
-        if (position.coords.accuracy > threshold)
-          throw new Error(
-            `Best accuracy was ±${Math.round(position.coords.accuracy)} m. Move outdoors and retry (≤${threshold} m required).`,
-          );
+        if (Date.now() - position.timestamp > 30000)
+          throw new Error("The device returned an old position. Get location again for a fresh reading.");
         const v = {
           latitude: position.coords.latitude,
           longitude: position.coords.longitude,
           accuracy: position.coords.accuracy,
           captured_at: new Date(position.timestamp).toISOString(),
         };
+        validateGPS(v, threshold);
+        // Device capture works independently of database configuration.
+        // Only a server-issued ID can later confirm and submit a report.
+        if (mounted.current) setGps({ ...v, id: "" });
+        if (!enabled) return;
         const result = await api("location.capture", v);
         if (mounted.current) setGps({ ...v, id: result.id });
       } catch (e) {
@@ -159,6 +163,8 @@ export default function ReportForm({
     }
     watchRef.current = navigator.geolocation.watchPosition(
       (p) => {
+        if (done || Date.now() - p.timestamp > 30000 || p.timestamp > Date.now() + 10000 ||
+          !Number.isFinite(p.coords.accuracy) || p.coords.accuracy <= 0) return;
         if (!best || p.coords.accuracy < best.coords.accuracy) best = p;
         if (p.coords.accuracy <= threshold && Date.now() - p.timestamp < 30000)
           void finish(p);
@@ -179,7 +185,7 @@ export default function ReportForm({
   async function mapReady() {
     if (!gps || mapViewed) return;
     try {
-      await api("location.view", { id: gps.id });
+      if (gps.id) await api("location.view", { id: gps.id });
       setMapViewed(true);
       setConfirmed(false);
     } catch (e) {
@@ -188,6 +194,11 @@ export default function ReportForm({
   }
   async function confirm() {
     if (!mapViewed || !gps) return;
+    if (!gps.id) {
+      setError("Location captured on this device. Database connection is required to confirm and save a report.");
+      setMapOpen(false);
+      return;
+    }
     setBusy(true);
     try {
       await api("location.confirm", { id: gps.id });
@@ -208,7 +219,7 @@ export default function ReportForm({
         throw new Error(
           "Configure Supabase and image hosting before submitting.",
         );
-      if (kind !== "facility" && (!confirmed || !gps))
+      if (kind !== "facility" && (!confirmed || !gps?.id))
         throw new Error("Capture and confirm your location first.");
       if (
         photos.some((p) => p.busy || !p.id) ||
@@ -443,7 +454,7 @@ export default function ReportForm({
                 ) : (
                   <Navigation size={18} />
                 )}{" "}
-                {gpsBusy ? "Acquiring GPS…" : "Capture My Location"}
+                {gpsBusy ? "Acquiring GPS…" : "Get location"}
               </Button>
               <Button
                 type="button"
@@ -459,6 +470,11 @@ export default function ReportForm({
                 View Location
               </Button>
             </div>
+            <p className="muted" role="status" aria-live="polite">
+              {gpsBusy
+                ? `Requesting a fresh high-accuracy position (within ${threshold} m). Allow location access when prompted; move outdoors for a better signal.`
+                : `Uses your device's location services with high accuracy enabled. Required accuracy: within ${threshold} m. Your browser controls GPS availability and permission.`}
+            </p>
             {gps && (
               <div className={`gps-state ${confirmed ? "verified" : ""}`}>
                 <ShieldCheck size={22} />
@@ -466,7 +482,7 @@ export default function ReportForm({
                   <strong>
                     {confirmed
                       ? "Location confirmed"
-                      : "Location captured · verification required"}
+                      : gps.id ? "Location captured · verification required" : "Location captured on this device"}
                   </strong>
                   <p>
                     {gps.latitude}, {gps.longitude} · ±
