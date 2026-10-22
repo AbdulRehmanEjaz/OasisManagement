@@ -1,8 +1,9 @@
 "use client";
-import { MapContainer, TileLayer, Marker, Popup, Circle, useMap } from "react-leaflet";
+import { MapContainer, Marker, Popup, Circle, useMap } from "react-leaflet";
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { divIcon } from "leaflet";
 import "leaflet/dist/leaflet.css";
+import SatelliteLayer from "./satellite-layer";
 import type { Row } from "@/lib/client";
 function Bounds({records}: {records: Row[]}) {
  const map = useMap();
@@ -11,10 +12,11 @@ function Bounds({records}: {records: Row[]}) {
 }
 export default function LocationMap({records,onReady,onSelect}:{records:Row[];onReady?:()=>void;onSelect?:(r:Row)=>void}) {
  const [tileError,setTileError]=useState(false);
+ const [enlargedImagery,setEnlargedImagery]=useState(false);
  const pins=useMemo(()=>records.filter(r=>typeof r.latitude==="number"&&typeof r.longitude==="number"&&Number.isFinite(r.latitude)&&Number.isFinite(r.longitude)&&Math.abs(r.latitude)<=90&&Math.abs(r.longitude)<=180),[records]);
  const locations = useMemo(() => Array.from(new Map(pins.map(r => [r.latitude + "," + r.longitude, r])).values()), [pins]);
- return <div className="satellite-map"><div className="map-frame"><MapContainer center={pins.length?[pins[0].latitude,pins[0].longitude]:[26.61,37.92]} zoom={pins.length?16:11} style={{height:"100%",width:"100%"}}>
- <TileLayer attribution='Tiles &copy; Esri — Sources: Esri, Maxar, Earthstar Geographics, and the GIS User Community' url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}" maxNativeZoom={19} maxZoom={21} eventHandlers={{tileload:()=>{setTileError(false);onReady?.();},tileerror:()=>setTileError(true)}}/>
+ return <div className="satellite-map"><div className="map-frame"><MapContainer center={pins.length?[pins[0].latitude,pins[0].longitude]:[26.61,37.92]} zoom={pins.length?16:11} maxZoom={21} style={{height:"100%",width:"100%"}}>
+ <SatelliteLayer onReady={()=>{setTileError(false);onReady?.();}} onError={()=>setTileError(true)} onFallback={()=>setEnlargedImagery(true)}/>
  <Bounds records={pins}/>
  {locations.map((r,index)=>{return <Fragment key={(r.kind||"facility")+r.id}>
  <Marker position={[r.latitude,r.longitude]} title={r.number||"Captured position"} riseOnHover icon={divIcon({className:"report-map-pin",html:'<span><b>'+(index+1)+'</b></span>',iconSize:[32,40],iconAnchor:[16,40],popupAnchor:[0,-38]})}>
@@ -34,6 +36,7 @@ export default function LocationMap({records,onReady,onSelect}:{records:Row[];on
  </Fragment>;})}
  </MapContainer></div>
  {tileError&&<p className="notice" role="status">Satellite imagery could not load. Check your connection and zoom out; saved GPS coordinates are unchanged.</p>}
+ {enlargedImagery&&<p className="map-caption">Showing enlarged available imagery where higher-resolution satellite coverage is missing. GPS pins stay at their recorded coordinates.</p>}
  <p className="map-caption">Satellite imagery · {pins.length} locations · Tap a pin for details. Position accuracy follows the recorded device GPS.</p>
  </div>;
 }
