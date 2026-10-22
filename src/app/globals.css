@@ -2544,3 +2544,5 @@ body:has(.operations-hub) { background: #f5f2e9; }
 @media (max-width: 760px) { .hub-header { flex-wrap: wrap; gap: 18px; } .hub-brand { width: 100%; justify-content: center; } .hub-brand > img { width: min(60%, 270px); } .hub-brand > div { font-size: 26px; } .hub-clock { margin-left: auto; padding: 9px 15px; } .hub-clock > div { display: flex; align-items: center; gap: 12px; } .hub-clock time { font-size: 13px; } .hub-clock div span { font-size: 10px; } .hub-clock > svg { width: 17px; height: 17px; } .hub-intro > p { font-size: 11px; letter-spacing: .9px; } }
 
 .hub-footer > span:nth-child(2) { display: flex; gap: 6px; align-items: center; }
+
+@media (max-width: 540px) { .hub-brand { flex-wrap: wrap; gap: 14px; } .hub-brand > img { width: min(100%, 330px); } .hub-brand > div { width: 100%; border-left: 0; padding-left: 0; margin-left: 0; text-align: center; font-size: 26px; } }

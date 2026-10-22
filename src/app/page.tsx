@@ -32,7 +32,7 @@ export default async function Home({searchParams}:{searchParams:Promise<Record<s
   const params=new URLSearchParams({view:query.view});if(typeof query.record==="string")params.set("record",query.record);redirect("/oasis?"+params);
  }
  return <main className="operations-hub">
- <header className="hub-header"><a href="/" className="hub-brand"><img src="/branding/advacon-alula-oasis.png" width="330" height="110" alt="ADVACON and AlUla Oasis Management"/><div>Oasis<span>OPERATIONS HUB</span></div></a><HubClock/></header>
+ <header className="hub-header"><a href="/" className="hub-brand"><img src="/branding/advacon-alula-oasis-transparent.png" width="330" height="110" alt="ADVACON and AlUla Oasis Management"/><div>OPERATIONS HUB</div></a><HubClock/></header>
  <section className="hub-intro"><h1>Clarity for every<br/><em>part of the field.</em></h1><p>ALL OPERATIONS. ONE WORKSPACE.</p></section>
  <section className="hub-cards" aria-label="Operations dashboards">
  <a className="hub-card hub-card-active" href="/oasis"><div className="hub-card-art"><Scene kind="field"/><span className="hub-status"><span/>Available now</span><span className="hub-card-index">01</span></div><div className="hub-card-content"><div className="hub-icon"><Recycle size={23}/><MapPin size={16}/></div><h2>Oasis Domestic Waste<br/>&amp; Site Survey</h2><p>Report waste, document site facilities, and see every observation on the map.</p><div className="hub-tags"><span>Waste reporting</span><span>Site survey</span></div><footer><span>Open dashboard</span><span className="hub-open"><ArrowUpRight size={22}/></span></footer></div></a>
