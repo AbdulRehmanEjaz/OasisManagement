@@ -23,6 +23,7 @@ export default function RecordDetail({
   record: r,
   type,
   admin,
+  canEdit = admin,
   viewer = false,
   users,
   options,
@@ -34,6 +35,7 @@ export default function RecordDetail({
   record: Row;
   type: string;
   admin: boolean;
+  canEdit?: boolean;
   viewer?: boolean;
   users: Row[];
   options: Row[];
@@ -65,7 +67,7 @@ export default function RecordDetail({
           setHistoryCount(d.count);
         })
         .catch((e) => setError(e.message));
-    else if (!viewer)
+    else if (admin)
       read("deliveries", { record: r.id })
         .then((d) => setDelivery(d.data[0]?.status || "pending"))
         .catch((e) => setError(e.message));
@@ -129,13 +131,14 @@ export default function RecordDetail({
             {r.profiles?.full_name ? ` · ${r.profiles.full_name}` : ""}
           </p>
         </div>
-        {admin && (
-          <div className="detail-actions">
+        <div className="detail-actions">
+          <a className="google-maps-button" href={`https://www.google.com/maps?q=${r.latitude},${r.longitude}`} target="_blank" rel="noopener noreferrer"><MapPin size={16} />Open in Google Maps ↗</a>
+          {canEdit && <>
             <Button variant="outline" size="sm" onClick={() => setEdit(!edit)}>
               <Pencil size={16} />
               {edit ? "Cancel edit" : "Edit"}
             </Button>
-            <Button
+            {admin && <Button
               variant="destructive"
               size="sm"
               onClick={() => setDeleting(true)}
@@ -146,9 +149,9 @@ export default function RecordDetail({
                 <Trash2 size={16} />
               )}{" "}
               {type === "facilities" ? "Archive" : "Delete"}
-            </Button>
-          </div>
-        )}
+            </Button>}
+          </>}
+        </div>
       </div>
       {edit ? (
         <form
@@ -271,7 +274,7 @@ export default function RecordDetail({
                       "Waste type": r.category,
                       Quantity: `${r.quantity} ${r.unit}`,
                       Supervisor: r.profiles?.full_name || "—",
-                      "Manager email": delivery || "Loading…",
+                      ...(admin ? {"Manager email": delivery || "Loading…"} : {}),
                     }
                   : {
                       "Inspection number": r.number,

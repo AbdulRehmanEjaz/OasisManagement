@@ -16,7 +16,7 @@ export function canReadType(role: string, type: string) {
       ["overview", "waste", "facilities", "inspections", "options"].includes(
         type,
       )) ||
-    (role === "supervisor" && ["facilities", "options"].includes(type))
+    (role === "supervisor" && ["facilities", "options", "waste", "inspections"].includes(type))
   );
 }
 export function allowedViews(role: string) {
@@ -32,5 +32,5 @@ export function allowedViews(role: string) {
       ]
     : role === "viewer"
       ? ["dashboard", "waste", "facilities", "inspections"]
-      : ["dashboard"];
+      : ["dashboard", "waste", "facilities", "inspections"];
 }

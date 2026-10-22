@@ -154,7 +154,7 @@ export default function Workspace({
   useEffect(() => {
     if (
       (!configured && view !== "users") ||
-      supervisorPanel ||
+      (supervisorPanel && view === "dashboard") ||
       view === "users"
     )
       return;
@@ -429,7 +429,8 @@ export default function Workspace({
             </div>
             {submitAllowed && (
               <div className="heading-actions">
-                {view === "dashboard" ? (
+                {supervisorPanel && <div className="segmented supervisor-report-tabs" role="tablist" aria-label="My reports"><button role="tab" aria-selected={view === "waste"} className={view === "waste" ? "selected" : ""} onClick={() => navigate("waste")}>My Waste Reports</button><button role="tab" aria-selected={view === "inspections"} className={view === "inspections" ? "selected" : ""} onClick={() => navigate("inspections")}>My Facilities Reports</button></div>}
+          {view === "dashboard" ? (
                   <Button onClick={() => setChooser(true)}>
                     <Plus size={18} />
                     New report
@@ -615,7 +616,7 @@ export default function Workspace({
                         ))}
                     </select>
                   </label>
-                  {admin && view !== "facilities" && !viewer && (
+                  {admin && view !== "facilities" && admin && (
                     <label>
                       Supervisor
                       <select
@@ -822,7 +823,7 @@ export default function Workspace({
                                 : "Status / supervisor"}
                           </th>
                           <th>Location</th>
-                          {view !== "facilities" && !viewer && (
+                          {view !== "facilities" && admin && (
                             <th>Manager email</th>
                           )}
                           <th>Details</th>
@@ -877,7 +878,7 @@ export default function Workspace({
                                     : "Unverified"}
                               </button>
                             </td>
-                            {view !== "facilities" && !viewer && (
+                            {view !== "facilities" && admin && (
                               <td>
                                 <span
                                   className={`status ${r.email_status === "failed" ? "bad" : r.email_status === "sent" ? "good" : ""}`}
@@ -1170,6 +1171,7 @@ export default function Workspace({
           record={detail.row}
           type={detail.type}
           admin={admin}
+          canEdit={admin || (supervisorPanel && detail.row.supervisor_id === profile.id)}
           viewer={viewer}
           users={users}
           options={options}

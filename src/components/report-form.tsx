@@ -510,7 +510,7 @@ export default function ReportForm({
           <small>
             {kind === "facility"
               ? "Facility reference records can be managed by administrators."
-              : "Submitted records are read-only for supervisors."}
+              : "Find your submissions in My Waste Reports or My Facilities Reports to review and edit them."}
           </small>
           <Button
             type="submit"

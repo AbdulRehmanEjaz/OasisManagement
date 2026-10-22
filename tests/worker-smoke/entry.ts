@@ -115,10 +115,7 @@ export default {
           ]),
         "transaction guard rejects forged role",
       );
-      await rejects(
-        () => readRecords(db, supervisor, "waste", new URLSearchParams()),
-        "supervisor cannot browse reports",
-      );
+      assert((await readRecords(db, supervisor, "waste", new URLSearchParams())).count === 0, "supervisor starts with an empty own-report list");
       await rejects(
         () => readRecords(db, viewer, "audit", new URLSearchParams()),
         "viewer cannot see audit or identities",
@@ -265,6 +262,13 @@ export default {
           visible.data[0].waste_report_photos.length === 2,
         "map coordinates and photographs preserved",
       );
+      assert((await readRecords(db, supervisor, "waste", new URLSearchParams())).count === 1, "supervisor can list own reports");
+      assert((await readRecords(db, other, "waste", new URLSearchParams({id:report.id}))).count === 0, "supervisor cannot read another supervisor report by ID");
+      const ownPatch = {category:input.category,quantity:5,unit:"Kilograms (kg)",description:"Corrected by reporting supervisor"};
+      await rejects(() => updateRecord(db, other, {type:"waste",id:report.id,patch:ownPatch}), "supervisor cannot edit another supervisor report");
+      await rejects(() => updateRecord(db, supervisor, {type:"waste",id:report.id,patch:{...ownPatch,latitude:0}}), "supervisor cannot edit immutable GPS fields");
+      await updateRecord(db, supervisor, {type:"waste",id:report.id,patch:ownPatch});
+      assert((await db.one("SELECT quantity FROM reports WHERE id=?",report.id))?.quantity === 5, "supervisor can edit own waste report");
       await rejects(
         () =>
           updateRecord(db, viewer, { type: "waste", id: report.id, patch: {} }),
@@ -317,8 +321,11 @@ export default {
       );
       assert((await db.one("SELECT unit FROM reports WHERE id=?", report.id))?.unit === "Kilograms (kg)", "waste submissions use kilograms regardless of client unit");
       assert((await db.one("SELECT count(*) n FROM record_photos WHERE report_id=?", inspection.id))?.n === 1, "one mandatory photo is sufficient for a site inspection");
+      await updateRecord(db, supervisor, {type:"inspections",id:inspection.id,patch:{site:"Fixture inspection site",structure_type:"Animal Shelters",description:"Corrected site observations"}});
+      assert((await db.one("SELECT structure_type FROM reports WHERE id=?",inspection.id))?.structure_type === "Animal Shelters", "supervisor can edit own facility report");
+      await rejects(() => updateRecord(db, other, {type:"inspections",id:inspection.id,patch:{description:"Forged"}}), "other supervisor cannot edit facility report");
       const saved = await db.one("SELECT site,structure_type,inspection_date FROM reports WHERE id=?", inspection.id);
-      assert(saved?.site === "Fixture inspection site" && saved?.structure_type === "Metal Structures" && saved?.inspection_date === submissionDate(), "inspection stores site, structure and server submission date");
+      assert(saved?.site === "Fixture inspection site" && saved?.structure_type === "Animal Shelters" && saved?.inspection_date === submissionDate(), "inspection stores site, structure and server submission date");
       await deleteRecord(db, admin, { type: "facilities", id: facility.id });
       assert(
         !!(await db.one("SELECT id FROM reports WHERE id=?", inspection.id)),

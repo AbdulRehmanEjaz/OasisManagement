@@ -80,6 +80,7 @@ export async function readRecords(
   };
   if (type === "waste" || type === "inspections")
     filter("kind=?", type === "waste" ? "waste" : "inspection");
+  if (actor.role === "supervisor" && ["waste", "inspections"].includes(type)) filter("supervisor_id=?", actor.id);
   if (q.get("id")) filter("id=?", z.uuid().parse(q.get("id")));
   if (type === "facilities" && q.get("archived") !== "1")
     where.push("archived_at IS NULL");
@@ -161,7 +162,7 @@ export async function readRecords(
       delete result.supervisor_id;
       delete result.assigned_supervisor;
     } else if (row.supervisor_id)
-      result.profiles = { full_name: row.supervisor_name };
+      result.profiles = { full_name: actor.role === "supervisor" ? actor.full_name : row.supervisor_name };
     result[
       type === "waste"
         ? "waste_report_photos"
@@ -328,7 +329,7 @@ export async function registerFacility(
   return { id };
 }
 export async function updateRecord(db: D1Store, actor: Actor, input: Data) {
-  if (actor.role !== "admin") throw new HttpError("FORBIDDEN", 403);
+  if (!["admin", "supervisor"].includes(actor.role)) throw new HttpError("FORBIDDEN", 403);
   const type = z.enum(["waste", "facilities", "inspections"]).parse(input.type),
     id = z.uuid().parse(input.id),
     table = type === "facilities" ? "facilities" : "reports";
@@ -339,6 +340,7 @@ export async function updateRecord(db: D1Store, actor: Actor, input: Data) {
     (type === "inspections" && row.kind !== "inspection")
   )
     throw new HttpError("Record unavailable.", 404);
+  if (actor.role === "supervisor" && (type === "facilities" || row.supervisor_id !== actor.id)) throw new HttpError("FORBIDDEN", 403);
   let patch: Data;
   if (type === "facilities")
     patch = facilitySchema.omit({ photo_ids: true }).parse(input.patch);
@@ -351,6 +353,7 @@ export async function updateRecord(db: D1Store, actor: Actor, input: Data) {
         unit: z.string().min(1).max(50),
         description: z.string().max(4000),
       })
+      .strict()
       .refine(
         (p) => p.category !== "Other" || !!p.description.trim(),
         "Describe Other waste.",
@@ -364,6 +367,7 @@ export async function updateRecord(db: D1Store, actor: Actor, input: Data) {
         site: z.string().trim().min(1).max(200).optional(),
         structure_type: z.enum(structureTypes).optional(),
       })
+      .strict()
       .parse(input.patch);
   const pairs =
     type === "facilities"
@@ -395,13 +399,14 @@ export async function updateRecord(db: D1Store, actor: Actor, input: Data) {
   )
     throw new HttpError("Choose an active supervisor.");
   if (type === "facilities") patch.updated_at = new Date().toISOString();
-  await db.write(actor, "admin", [
+  await db.write(actor, actor.role === "admin" ? "admin" : "submit", [
     db.stmt(
       `UPDATE ${table} SET ${Object.keys(patch)
         .map((k) => k + "=?")
-        .join(",")} WHERE id=?`,
+        .join(",")} WHERE id=?${actor.role === "supervisor" ? " AND supervisor_id=?" : ""}`,
       ...Object.values(patch),
       id,
+      ...(actor.role === "supervisor" ? [actor.id] : []),
     ),
     db.audit(actor.id, type, id, "UPDATED", { old: row, new: patch }),
   ]);

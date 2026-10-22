@@ -38,9 +38,9 @@ test("Panel permissions restrict Viewer and Supervisor operations", () => {
   assert.equal(canReadType("viewer", "deliveries"), false);
   assert.equal(canSubmit("viewer"), false);
   assert.ok(canSubmit("supervisor"));
-  assert.equal(canReadType("supervisor", "waste"), false);
+  assert.equal(canReadType("supervisor", "waste"), true);
   assert.equal(canReadType("supervisor", "overview"), false);
-  assert.deepEqual(allowedViews("supervisor"), ["dashboard"]);
+  assert.deepEqual(allowedViews("supervisor"), ["dashboard", "waste", "facilities", "inspections"]);
   assert.equal(allowedViews("viewer").includes("users"), false);
 });
 test("PIN sessions persist, expire, revoke and enforce login throttling", () => {

@@ -150,7 +150,7 @@ try {
   const supervisorCookie = (r.headers.get("set-cookie") || "").split(";")[0];
   check(r.status === 200, "PIN-only supervisor login");
   r = await request("/api/operations?type=waste", null, supervisorCookie);
-  check(r.status === 403, "supervisor cannot read reports through HTTP");
+  check(r.status === 200 && (await r.json()).count === 0, "supervisor can read own-report list through HTTP");
   r = await request(
     "/api/operations",
     { action: "option.add", kind: "waste", label: "Forbidden" },
