@@ -284,7 +284,7 @@ export default function RecordDetail({
                       Condition: r.condition || "—",
                       "Inspection date": r.inspection_date,
                       Supervisor: r.profiles?.full_name || "—",
-                      "Manager email": delivery || "Loading…",
+                      ...(admin ? {"Manager email": delivery || "Loading…"} : {}),
                     },
             )
               .filter(
