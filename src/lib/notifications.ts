@@ -36,7 +36,7 @@ export async function sendNotification(db: D1Store, recordId: string) {
         from: process.env.RESEND_FROM_EMAIL,
         to: process.env.MANAGER_EMAIL,
         subject: `${record.kind === "waste" ? "Oasis Waste" : "OnSite Facilities"} · ${record.number}`,
-        text: `${record.number}\nSupervisor: ${record.full_name}\nSubmitted: ${record.created_at}\n${process.env.APP_URL}/?view=${record.kind === "waste" ? "waste" : "inspections"}&record=${record.id}`,
+        text: `${record.number}\nSupervisor: ${record.full_name}\nSubmitted: ${record.created_at}\n${process.env.APP_URL}/oasis?view=${record.kind === "waste" ? "waste" : "inspections"}&record=${record.id}`,
       }),
       signal: AbortSignal.timeout(20000),
     });

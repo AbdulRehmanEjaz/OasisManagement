@@ -20,7 +20,7 @@ export default function Login() {
       });
       const d = await r.json();
       if (!r.ok) throw new Error(d.error);
-      location.href = "/";
+      location.href = "/oasis";
     } catch (e) {
       setError((e as Error).message);
       setPin("");

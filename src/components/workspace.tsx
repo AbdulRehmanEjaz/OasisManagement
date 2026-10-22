@@ -217,7 +217,7 @@ export default function Workspace({
     setMenu(false);
     if (v === "waste") setModule("waste");
     if (v === "inspections") setModule("inspection");
-    history.replaceState(null, "", v === "dashboard" ? "/" : `/?view=${v}`);
+    history.replaceState(null, "", v === "dashboard" ? "/oasis" : `/oasis?view=${v}`);
   }
   async function logout() {
     try {
@@ -245,6 +245,7 @@ export default function Workspace({
   ].filter((v) => panelViews.includes(v)) as View[];
   return (
     <main className="app-shell">
+      <a className="hub-return" href="/">← All dashboards</a>
       <header className="topbar">
         <button
           className="brand"

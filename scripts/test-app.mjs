@@ -58,6 +58,10 @@ const request = (path, body, cookie = "", extra = {}) =>
     redirect: "manual",
   });
 try {
+  const hub = await request("/");
+  const hubHtml = await hub.text();
+  check(hub.status === 200 && hubHtml.includes("Operations Hub") && hubHtml.includes("/oasis") && hubHtml.includes("Coming soon"), "public landing page links to protected Oasis dashboard");
+  check((await request("/oasis")).status === 307, "Oasis dashboard still requires PIN authentication");
   let r = await request("/login");
   check(
     r.status === 200 && (await r.text()).includes("Enter your PIN"),
@@ -103,7 +107,7 @@ try {
     (r.headers.get("cache-control") || "").includes("no-store"),
     "authentication responses are never cached",
   );
-  r = await request("/", null, adminCookie);
+  r = await request("/oasis", null, adminCookie);
   check(
     r.status === 200 && (await r.text()).includes("oasis"),
     "D1 session opens the dashboard",
@@ -130,9 +134,9 @@ try {
   r = await request("/api/auth", { action: "login", pin: "876" });
   const viewerCookie = (r.headers.get("set-cookie") || "").split(";")[0];
   check(r.status === 200, "PIN-only viewer login");
-  const viewerOverview = await (await request("/", null, viewerCookie)).text();
+  const viewerOverview = await (await request("/oasis", null, viewerCookie)).text();
   check(viewerOverview.includes("Report maps") && viewerOverview.includes("Waste Reports") && viewerOverview.includes("Facilities"), "Viewer Overview has both report-map tabs");
-  const adminOverview = await (await request("/", null, adminCookie)).text();
+  const adminOverview = await (await request("/oasis", null, adminCookie)).text();
   check(adminOverview.includes("Report maps") && adminOverview.includes("Waste Reports"), "Admin Overview has report maps");
   r = await request("/api/access", null, viewerCookie);
   check(r.status === 403, "viewer cannot read users through HTTP");
