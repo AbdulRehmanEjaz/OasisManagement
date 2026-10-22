@@ -102,7 +102,7 @@ export default function PhotoInput({
         <span className="step-number">02</span>
         <div>
           <h3>Photographic evidence</h3>
-          <p>2–3 clear site photos · JPEG, PNG or WebP · up to 15 MB each</p>
+          <p>1 photo required · add up to 3 · JPEG, PNG or WebP · up to 15 MB each</p>
         </div>
       </div>
       <input

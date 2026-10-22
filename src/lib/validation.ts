@@ -40,7 +40,7 @@ export const reportSchema = z
     location_id: z.uuid(),
     photo_ids: z
       .array(z.uuid())
-      .min(2)
+      .min(1)
       .max(3)
       .refine(
         (a) => new Set(a).size === a.length,

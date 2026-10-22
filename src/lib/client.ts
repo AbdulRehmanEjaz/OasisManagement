@@ -6,11 +6,12 @@ export type Profile = {
   role: "admin" | "viewer" | "supervisor";
   is_active: boolean;
 };
-export async function api(action: string, body: Record<string, unknown> = {}) {
+export async function api(action: string, body: Record<string, unknown> = {}, signal?: AbortSignal) {
   const response = await fetch(
     action.startsWith("user.") ? "/api/access" : "/api/operations",
     {
       method: "POST",
+      signal,
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action, ...body }),
     },

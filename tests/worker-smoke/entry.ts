@@ -308,7 +308,7 @@ export default {
         structure_type: "Metal Structures",
         description: "Fixture inspection",
         location_id: locationId,
-        photo_ids: photoIds,
+        photo_ids: photoIds.slice(0, 1),
         idempotency_key: crypto.randomUUID(),
       });
       assert(
@@ -316,6 +316,7 @@ export default {
         "standalone site inspection and numbering",
       );
       assert((await db.one("SELECT unit FROM reports WHERE id=?", report.id))?.unit === "Kilograms (kg)", "waste submissions use kilograms regardless of client unit");
+      assert((await db.one("SELECT count(*) n FROM record_photos WHERE report_id=?", inspection.id))?.n === 1, "one mandatory photo is sufficient for a site inspection");
       const saved = await db.one("SELECT site,structure_type,inspection_date FROM reports WHERE id=?", inspection.id);
       assert(saved?.site === "Fixture inspection site" && saved?.structure_type === "Metal Structures" && saved?.inspection_date === submissionDate(), "inspection stores site, structure and server submission date");
       await deleteRecord(db, admin, { type: "facilities", id: facility.id });

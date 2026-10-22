@@ -43,12 +43,13 @@ test("GPS threshold is configurable", () => {
   assert.doesNotThrow(() => validateGPS({ ...gps, accuracy: 25 }, 30, now));
   assert.throws(() => validateGPS({ ...gps, accuracy: 25 }, 20, now));
 });
-test("Waste validates quantity and 2–3 distinct photos", () => {
+test("Waste validates quantity and 1–3 distinct photos", () => {
   assert.ok(reportSchema.safeParse(waste).success);
+  assert.ok(reportSchema.safeParse({...waste, photo_ids:[uuid]}).success);
   for (const change of [
     { quantity: 0 },
     { quantity: -2 },
-    { photo_ids: [uuid] },
+    { photo_ids: [] },
     { photo_ids: [uuid, uuid] },
     { location_id: undefined },
     { category: undefined },

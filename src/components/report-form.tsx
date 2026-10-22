@@ -53,6 +53,7 @@ export default function ReportForm({
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false),
     [gpsBusy, setGpsBusy] = useState(false),
+    [gpsSaving, setGpsSaving] = useState(false),
     [gpsHint, setGpsHint] = useState(""),
     [gps, setGps] = useState<Row | null>(null),
     [confirmed, setConfirmed] = useState(false),
@@ -161,12 +162,13 @@ export default function ReportForm({
         // Device capture works independently of database configuration.
         // Only a server-issued ID can later confirm and submit a report.
         if (!enabled) return;
-        const result = await api("location.capture", v);
-        if (mounted.current) setGps({ ...v, id: result.id });
+        setGpsSaving(true);
+        const result = await api("location.capture", v, AbortSignal.timeout(15000));
+        if (mounted.current) { setGps({ ...v, id: result.id }); setMapOpen(true); }
       } catch (e) {
-        if (mounted.current) setError((e as Error).message);
+        if (mounted.current) setError((e as Error).name === "TimeoutError" ? "The location request took too long. Check your internet connection and try again." : (e as Error).message);
       } finally {
-        if (mounted.current) setGpsBusy(false);
+        if (mounted.current) { setGpsBusy(false); setGpsSaving(false); }
       }
     }
     watchRef.current = navigator.geolocation.watchPosition(
@@ -184,22 +186,19 @@ export default function ReportForm({
           void finish(p);
       },
       (e) => {
-        // A watch timeout is recoverable: continue seeking a better fix
-        // until the overall acquisition deadline instead of discarding it.
-        if (e.code !== 1) return;
         void finish(
-          undefined,
-          "Location permission denied. Enable location access in browser settings, then retry.",
+          best,
+          e.code === 1 ? "Location permission denied. Enable precise location in browser settings, then retry." : e.code === 2 ? "Your device could not locate you. Turn on location services, move outdoors, and retry." : "GPS timed out. Enable precise location or use a GPS-equipped phone, then retry.",
         );
       },
-      { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 },
+      { enableHighAccuracy: true, maximumAge: 0, timeout: 12000 },
     );
-    timerRef.current = setTimeout(() => void finish(best), 60000);
+    timerRef.current = setTimeout(() => void finish(best), 20000);
   }
   async function mapReady() {
     if (!gps || mapViewed) return;
     try {
-      if (gps.id) await api("location.view", { id: gps.id });
+      if (gps.id) await api("location.view", { id: gps.id }, AbortSignal.timeout(15000));
       setMapViewed(true);
       setConfirmed(false);
     } catch (e) {
@@ -215,7 +214,7 @@ export default function ReportForm({
     }
     setBusy(true);
     try {
-      await api("location.confirm", { id: gps.id });
+      await api("location.confirm", { id: gps.id }, AbortSignal.timeout(15000));
       setConfirmed(true);
       setMapOpen(false);
     } catch (e) {
@@ -234,10 +233,10 @@ export default function ReportForm({
           "Configure D1 and image hosting before submitting.",
         );
       if (kind !== "facility" && (!confirmed || !gps?.id))
-        throw new Error("Capture and confirm your location first.");
+        throw new Error(gpsBusy ? "Wait for location capture to finish." : !gps ? "Tap Get location, then confirm your position on the map." : gps.accuracy > threshold ? "Your GPS accuracy is not sufficient. Enable precise location and retry outdoors." : "Tap View Location, then Confirm This Location before submitting.");
       if (
         photos.some((p) => p.busy || !p.id) ||
-        photos.length < (kind === "facility" ? 0 : 2)
+        photos.length < (kind === "facility" ? 0 : 1)
       )
         throw new Error("Finish uploading the required photos.");
       const body = { ...values, photo_ids: photos.map((p) => p.id) };
@@ -449,7 +448,7 @@ export default function ReportForm({
                 ) : (
                   <Navigation size={18} />
                 )}{" "}
-                {gpsBusy ? "Improving accuracy…" : gps && gps.accuracy > threshold ? "Try again" : "Get location"}
+                {gpsSaving ? "Saving location…" : gpsBusy ? "Finding location…" : gps && gps.accuracy > threshold ? "Try again" : "Get location"}
               </Button>
               <Button
                 type="button"
@@ -467,7 +466,7 @@ export default function ReportForm({
             </div>
             <p className="muted" role="status" aria-live="polite">
               {gpsBusy
-                ? `Looking for a precise position for up to 60 seconds${gps ? ` · best accuracy so far: ±${Math.ceil(gps.accuracy)} m` : ""}. Allow precise location access when prompted.`
+                ? gpsSaving ? "Saving your GPS reading securely…" : `Looking for a precise position for up to 20 seconds${gps ? ` · best accuracy so far: ±${Math.ceil(gps.accuracy)} m` : ""}. Allow precise location access when prompted.`
                 : `Uses your device's location services with high accuracy enabled. Required accuracy: within ${threshold} m. Your browser controls GPS availability and permission.`}
             </p>
             {gpsHint && <p className="notice" role="status">{gpsHint}</p>}
@@ -499,6 +498,14 @@ export default function ReportForm({
             {error}
           </p>
         )}
+        <div id="submission-checklist" className="notice" role="status" aria-live="polite">
+          <strong>Submission checklist</strong>
+          <ul>
+            <li>{photos.some(p => p.busy) ? "Photos are still uploading." : photos.some(p => p.error || !p.id) ? "Retry or remove failed photo uploads." : photos.filter(p => p.id).length < (kind === "facility" ? 0 : 1) ? "Upload 1 site photo. A second and third photo are optional." : "Photos ready."}</li>
+            {kind !== "facility" && <li>{gpsBusy ? gpsSaving ? "Saving location…" : "Finding your GPS location…" : !gps ? "Tap Get location to capture your position." : gps.accuracy > threshold ? `GPS accuracy is ±${Math.ceil(gps.accuracy)} m; required: within ${threshold} m. Enable precise location and retry outdoors.` : !gps.id ? "Location has not been saved. Tap Get location to retry." : !confirmed ? "Open View Location and tap Confirm This Location." : "Location confirmed and ready."}</li>}
+            {!enabled && <li>Backend configuration is unavailable. Refresh the page or contact the administrator.</li>}
+          </ul>
+        </div>
         <footer className="form-footer">
           <small>
             {kind === "facility"
@@ -507,13 +514,8 @@ export default function ReportForm({
           </small>
           <Button
             type="submit"
-            disabled={
-              busy ||
-              !enabled ||
-              photos.some((p) => p.busy) ||
-              (kind !== "facility" &&
-                (!confirmed || photos.filter((p) => p.id).length < 2))
-            }
+            disabled={busy}
+            aria-describedby="submission-checklist"
           >
             {busy
               ? "Saving…"

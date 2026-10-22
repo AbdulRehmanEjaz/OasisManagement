@@ -1,6 +1,9 @@
 {
 	"$schema": "node_modules/wrangler/config-schema.json",
 	"name": "oasis-management",
+	"workers_dev": true,
+	"preview_urls": true,
+	"routes": [{ "pattern": "operationscontrol.eu.cc", "custom_domain": true }],
 	"compatibility_date": "2026-10-21",
 	"compatibility_flags": [
 		"nodejs_compat"
