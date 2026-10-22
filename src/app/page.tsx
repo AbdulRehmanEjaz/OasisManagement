@@ -1,4 +1,5 @@
-import { ArrowUpRight, Leaf, LockKeyhole, Recycle, Sprout, HardHat, MapPin, ShieldCheck } from "lucide-react";
+import HubClock from "@/components/hub-clock";
+import { ArrowUpRight, LockKeyhole, Recycle, Sprout, HardHat, MapPin, ShieldCheck } from "lucide-react";
 import { redirect } from "next/navigation";
 export const metadata = { title: "Oasis · Operations Hub", description: "Your connected workspace for field operations, farm performance, and workforce management." };
 function Scene({ kind }: {kind: "field" | "farms" | "people"}) {
@@ -31,13 +32,13 @@ export default async function Home({searchParams}:{searchParams:Promise<Record<s
   const params=new URLSearchParams({view:query.view});if(typeof query.record==="string")params.set("record",query.record);redirect("/oasis?"+params);
  }
  return <main className="operations-hub">
- <header className="hub-header"><a href="/" className="hub-brand"><span><Leaf size={25}/></span><div>oasis<span>OPERATIONS HUB</span></div></a><div className="hub-header-note"><span/>Connected operations</div></header>
- <section className="hub-intro"><span className="hub-eyebrow">YOUR OPERATIONS. ONE WORKSPACE.</span><h1>Clarity for every<br/><em>part of the field.</em></h1><p>From site observations to the people behind the work.<br className="hub-desktop-break"/> Choose your dashboard and get things moving.</p></section>
+ <header className="hub-header"><a href="/" className="hub-brand"><img src="/branding/advacon-alula-oasis.png" width="330" height="110" alt="ADVACON and AlUla Oasis Management"/><div>Oasis<span>OPERATIONS HUB</span></div></a><HubClock/></header>
+ <section className="hub-intro"><h1>Clarity for every<br/><em>part of the field.</em></h1><p>ALL OPERATIONS. ONE WORKSPACE.</p></section>
  <section className="hub-cards" aria-label="Operations dashboards">
  <a className="hub-card hub-card-active" href="/oasis"><div className="hub-card-art"><Scene kind="field"/><span className="hub-status"><span/>Available now</span><span className="hub-card-index">01</span></div><div className="hub-card-content"><div className="hub-icon"><Recycle size={23}/><MapPin size={16}/></div><h2>Oasis Domestic Waste<br/>&amp; Site Survey</h2><p>Report waste, document site facilities, and see every observation on the map.</p><div className="hub-tags"><span>Waste reporting</span><span>Site survey</span></div><footer><span>Open dashboard</span><span className="hub-open"><ArrowUpRight size={22}/></span></footer></div></a>
  <article className="hub-card hub-card-soon" aria-disabled="true"><div className="hub-card-art"><Scene kind="farms"/><span className="hub-status"><LockKeyhole size={12}/>Coming soon</span><span className="hub-card-index">02</span></div><div className="hub-card-content"><div className="hub-icon"><Sprout size={25}/></div><h2>Oasis Active Farms<br/>KPIs &amp; Performance Tracking</h2><p>A clearer view of active farms, operational performance, and progress in the oasis.</p><div className="hub-tags"><span>Farm KPIs</span><span>Performance</span></div><footer><span>Growing next</span><LockKeyhole size={18}/></footer></div></article>
  <article className="hub-card hub-card-soon" aria-disabled="true"><div className="hub-card-art"><Scene kind="people"/><span className="hub-status"><LockKeyhole size={12}/>Coming soon</span><span className="hub-card-index">03</span></div><div className="hub-card-content"><div className="hub-icon"><HardHat size={25}/></div><h2>Manpower &amp; Equipment<br/>Management</h2><p>Bring teams, equipment, and daily resource planning together in one place.</p><div className="hub-tags"><span>Workforce</span><span>Equipment</span></div><footer><span>Taking shape</span><LockKeyhole size={18}/></footer></div></article>
  </section>
- <footer className="hub-footer"><span>Rooted in the oasis. Built for the field.</span><span><ShieldCheck size={15}/>Secure PIN access inside each active dashboard</span></footer>
+ <footer className="hub-footer"><span>Rooted in the oasis. Built for the field.</span><span><ShieldCheck size={15}/>Secure PIN access inside each active dashboard</span><small className="hub-credits">©AbdulRehman Ejaz - ADVACON Co. Ltd.®</small></footer>
  </main>;
 }

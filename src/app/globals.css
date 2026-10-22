@@ -2529,3 +2529,18 @@ body:has(.operations-hub) { background: #f5f2e9; }
 @media (max-width:1050px) { .operations-hub { padding:26px 32px; } .hub-intro > p { position:static; margin-top:22px; max-width:none; } .hub-intro { padding:36px 0 28px; } .hub-cards { gap:16px; } .hub-card-content { padding:18px; } .hub-intro h1 { font-size:45px; } .hub-card h2 { font-size:19px; } }
 @media (max-width:760px) { .operations-hub { padding:20px; } .hub-cards { grid-template-columns:1fr; max-width:520px; margin:auto; gap:22px; } .hub-intro h1 { font-size:42px; letter-spacing:-1.8px; } .hub-intro > p { font-size:13px; } .hub-card-content { padding:23px; } .hub-card h2 { font-size:23px; } .hub-card-art { max-height:230px; } .hub-header-note { font-size:10px; } .hub-footer { flex-direction:column; align-items:center; text-align:center; padding-top:26px; } .hub-return { left:auto; right:12px; bottom:78px; } .hub-desktop-break { display:none; } }
 @media (prefers-reduced-motion:reduce) { .hub-card { transition:none; } .hub-card-active:hover { transform:none; } }
+
+.hub-brand > img { width: clamp(220px, 26vw, 330px); height: auto; display: block; border-radius: 9px; }
+.hub-brand > div { padding-left: 18px; margin-left: 5px; border-left: 1px solid #d7decf; }
+.hub-clock { display: flex; align-items: center; gap: 12px; padding: 12px 18px; border: 1px solid #dce3d4; border-radius: 50px; background: #fffef7; box-shadow: 0 3px 12px #25472e05; color: #34533e; flex-shrink: 0; }
+.hub-clock > div { display: grid; gap: 2px; }
+.hub-clock time { font-size: 16px; font-weight: 650; font-variant-numeric: tabular-nums; letter-spacing: .4px; white-space: nowrap; }
+.hub-clock div span { font-size: 10px; color: #778573; }
+.hub-clock small { font-size: 8px; letter-spacing: 1.2px; border-left: 1px solid #dce3d4; padding-left: 11px; color: #7f8e76; }
+.hub-intro > p { font-size: 13px; font-weight: 600; letter-spacing: 1.2px; }
+.hub-footer { flex-wrap: wrap; }
+.hub-credits { width: 100%; text-align: center; font-size: 10px; color: #7b8575; letter-spacing: .3px; margin-top: 3px; }
+@media (max-width: 1050px) { .hub-brand > img { width: 235px; } .hub-brand > div { font-size: 25px; padding-left: 12px; } .hub-brand div span { letter-spacing: 1.6px; font-size: 7px; } .hub-clock { padding: 10px 14px; gap: 9px; } .hub-clock small { display: none; } }
+@media (max-width: 760px) { .hub-header { flex-wrap: wrap; gap: 18px; } .hub-brand { width: 100%; justify-content: center; } .hub-brand > img { width: min(60%, 270px); } .hub-brand > div { font-size: 26px; } .hub-clock { margin-left: auto; padding: 9px 15px; } .hub-clock > div { display: flex; align-items: center; gap: 12px; } .hub-clock time { font-size: 13px; } .hub-clock div span { font-size: 10px; } .hub-clock > svg { width: 17px; height: 17px; } .hub-intro > p { font-size: 11px; letter-spacing: .9px; } }
+
+.hub-footer > span:nth-child(2) { display: flex; gap: 6px; align-items: center; }
