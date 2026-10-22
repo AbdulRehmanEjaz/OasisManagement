@@ -98,7 +98,7 @@ export default function Workspace({
     [date, setDate] = useState(""),
     [sort, setSort] = useState("newest"),
     [page, setPage] = useState(0),
-    [mapMode, setMapMode] = useState(false),
+    [mapMode, setMapMode] = useState(true),
     [filters, setFilters] = useState(false),
     [facilities, setFacilities] = useState<Row[]>([]),
     [users, setUsers] = useState<Row[]>([]),
@@ -119,7 +119,7 @@ export default function Workspace({
     setNow(new Date());
     const q = new URLSearchParams(location.search);
     const v = q.get("view");
-    if (v && panelViews.includes(v)) setView(v as View);
+    if (v && panelViews.includes(v)) { setView(v as View); setMapMode(["waste", "facilities", "inspections"].includes(v)); }
     const id = q.get("record");
     if (
       configured &&
@@ -176,15 +176,22 @@ export default function Workspace({
           } else if (view === "settings") {
             /* Options loaded by the shared query. */
           } else {
-            const d = await read(view, {
-              search,
-              category,
-              supervisor,
-              date,
-              sort,
-              page: String(page),
-              ...(mapMode ? { map: "1" } : {}),
-            });
+            const params = { search, category, supervisor, date, sort };
+            const satelliteView = mapMode && ["waste", "facilities", "inspections"].includes(view);
+            async function allLocations(type: string) {
+              const first = await read(type, {...params, map: "1", page: "0"});
+              const data = first.data.map((r: Row) => ({...r, mapRecordType: type}));
+              for (let offset = 1000; offset < first.count; offset += 1000) {
+                const next = await read(type, {...params, map: "1", page: String(offset / 1000)});
+                data.push(...next.data.map((r: Row) => ({...r, mapRecordType: type})));
+              }
+              return data;
+            }
+            const d = satelliteView ? await (async () => {
+              const data = await allLocations(view);
+              if (view === "facilities") data.push(...await allLocations("inspections"));
+              return {data, count: data.length};
+            })() : await read(view, {...params, page: String(page)});
             if (alive) {
               setRows(d.data);
               setTotal(d.count || 0);
@@ -228,7 +235,7 @@ export default function Workspace({
     setPage(0);
     setRows([]);
     setTotal(0);
-    setMapMode(false);
+    setMapMode(["waste", "facilities", "inspections"].includes(v));
     setMenu(false);
     if (v === "waste") setModule("waste");
     if (v === "facilities" || v === "inspections") setModule("inspection");
@@ -481,8 +488,11 @@ export default function Workspace({
           {view === "dashboard" ? (
             <>
               {configured && browse && (
-                <div className="stats-grid">
-                  {[
+                <div className={`stats-grid ${viewer ? "viewer-stats" : ""}`}>
+                  {(viewer ? [
+                    {key: "waste", title: "Total Waste Reports", icon: Recycle, color: "mint"},
+                    {key: "inspections", title: "Total Site Facilities Reported", icon: Building2, color: "sand"},
+                  ] : [
                     {
                       key: "waste",
                       title: "Waste reports",
@@ -513,7 +523,7 @@ export default function Workspace({
                       icon: admin ? Users : ShieldCheck,
                       color: "gray",
                     },
-                  ].map((s) => (
+                  ]).map((s) => (
                     <article className="stat-card" key={s.key}>
                       <div>
                         <span>{s.title}</span>
@@ -873,7 +883,7 @@ export default function Workspace({
                   <>
                     <LocationMap
                       records={rows}
-                      onSelect={(r) => setDetail({ row: r, type: view })}
+                      onSelect={(r) => setDetail({ row: r, type: r.mapRecordType || view })}
                     />
                     {!rows.length && (
                       <p className="notice">
@@ -1093,14 +1103,14 @@ export default function Workspace({
                 <div className="pagination">
                   <span>
                     {configured
-                      ? `${total} records · page ${page + 1}`
+                      ? mapMode && ["waste", "facilities", "inspections"].includes(view) ? `${total} mapped locations` : `${total} records · page ${page + 1}`
                       : "Live records require D1 configuration"}
                   </span>
                   <div>
                     <Button
                       variant="ghost"
                       size="icon"
-                      disabled={!page || loading}
+                      disabled={mapMode || !page || loading}
                       aria-label="Previous page"
                       onClick={() => setPage((p) => p - 1)}
                     >
@@ -1110,7 +1120,7 @@ export default function Workspace({
                       variant="ghost"
                       size="icon"
                       disabled={
-                        loading || (page + 1) * (mapMode ? 1000 : 12) >= total
+                        loading || mapMode || (page + 1) * 12 >= total
                       }
                       aria-label="Next page"
                       onClick={() => setPage((p) => p + 1)}
