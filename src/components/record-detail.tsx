@@ -180,7 +180,7 @@ export default function RecordDetail({
                         description: values.description,
                       }
                     : {
-                        condition: values.condition,
+                        ...(values.condition ? { condition: values.condition } : {}),
                         site: values.site,
                         structure_type: values.structure_type,
                         description: values.description,
@@ -226,13 +226,13 @@ export default function RecordDetail({
               </>
             ) : type === "waste" ? (
               <>
-                {input("site", "Project / site name")}
+                {r.site && input("site", "Project / site name")}
                 {select("category", "Waste type", "waste")}
                 {input("quantity", "Quantity", true)}
                 {select("unit", "Unit", "unit")}
               </>
             ) : (
-              <>{input("site", "Site Name")}{select("condition", "Condition", "status")}</>
+              <>{input("site", "Site Name")}{r.condition && select("condition", "Condition", "status")}</>
             )}
           </div>
           <label>
@@ -277,8 +277,8 @@ export default function RecordDetail({
                       "Inspection number": r.number,
                       "Site Name": r.site || r.facilities?.site || "—",
                       "Type of Structure": r.structure_type || "—",
-                      Facility: `${r.facilities?.number || ""} ${r.facilities?.name || "Reference unavailable"}`,
-                      Condition: r.condition,
+                      Facility: `${r.facilities?.number || ""} ${r.facilities?.name || "Site inspection"}`,
+                      Condition: r.condition || "—",
                       "Inspection date": r.inspection_date,
                       Supervisor: r.profiles?.full_name || "—",
                       "Manager email": delivery || "Loading…",

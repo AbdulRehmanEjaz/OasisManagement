@@ -63,19 +63,15 @@ test("Other waste requires remarks", () =>
     reportSchema.safeParse({ ...waste, category: "Other" }).success,
     false,
   ));
-test("Inspections require authorized reference metadata and observations", () => {
+test("Site inspections require site, structure and observations", () => {
   const data = {
     ...waste,
     kind: "inspection",
-    facility_id: uuid,
-    condition: "Operational",
     description: "Inspected on site",
     structure_type: "Metal Structures",
   };
   assert.ok(reportSchema.safeParse(data).success);
   for (const key of [
-    "facility_id",
-    "condition",
     "description",
     "site",
     "structure_type",

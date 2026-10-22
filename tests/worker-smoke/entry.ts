@@ -180,8 +180,7 @@ export default {
         photoIds = await photos(supervisor);
       const input = {
         kind: "waste",
-        site: "Fixture site",
-        category: "Palm Waste",
+        category: "Mixed domestic wastes (Rubber – Plastics – carton - old barrel - old pipes - wood)",
         quantity: 3,
         unit: "Bags",
         description: "Fixture",
@@ -304,8 +303,6 @@ export default {
       photoIds = await photos(supervisor);
       const inspection = await submitReport(db, supervisor, {
         kind: "inspection",
-        facility_id: facility.id,
-        condition: "Operational",
         inspection_date: "1900-01-01",
         site: "Fixture inspection site",
         structure_type: "Metal Structures",
@@ -316,8 +313,9 @@ export default {
       });
       assert(
         inspection.number === "OFT-I-000001",
-        "facility inspection module and numbering",
+        "standalone site inspection and numbering",
       );
+      assert((await db.one("SELECT unit FROM reports WHERE id=?", report.id))?.unit === "Kilograms (kg)", "waste submissions use kilograms regardless of client unit");
       const saved = await db.one("SELECT site,structure_type,inspection_date FROM reports WHERE id=?", inspection.id);
       assert(saved?.site === "Fixture inspection site" && saved?.structure_type === "Metal Structures" && saved?.inspection_date === submissionDate(), "inspection stores site, structure and server submission date");
       await deleteRecord(db, admin, { type: "facilities", id: facility.id });

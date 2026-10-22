@@ -247,7 +247,7 @@ export async function verifyLocation(
 export async function submitReport(db: D1Store, actor: Actor, input: unknown) {
   if (!canSubmit(actor.role)) throw new HttpError("FORBIDDEN", 403);
   // Device-provided dates are never trusted as the submission date.
-  const p = reportSchema.parse({ ...(input as Data), inspection_date: submissionDate() });
+  const p = reportSchema.parse({ ...(input as Data), ...((input as Data).kind === "waste" ? { unit: "Kilograms (kg)" } : {}), inspection_date: submissionDate() });
   const previous = () =>
     db.one(
       "SELECT id,number,created_at FROM reports WHERE supervisor_id=? AND idempotency_key=? AND kind=?",
@@ -345,7 +345,7 @@ export async function updateRecord(db: D1Store, actor: Actor, input: Data) {
   else if (type === "waste")
     patch = z
       .object({
-        site: z.string().trim().min(1).max(200),
+        site: z.string().trim().max(200).nullable().optional(),
         category: z.string().min(1).max(100),
         quantity: z.number().positive().max(100000000),
         unit: z.string().min(1).max(50),
@@ -359,7 +359,7 @@ export async function updateRecord(db: D1Store, actor: Actor, input: Data) {
   else
     patch = z
       .object({
-        condition: z.string().min(1).max(100),
+        condition: z.string().min(1).max(100).optional(),
         description: z.string().min(1).max(4000),
         site: z.string().trim().min(1).max(200).optional(),
         structure_type: z.enum(structureTypes).optional(),
@@ -376,7 +376,7 @@ export async function updateRecord(db: D1Store, actor: Actor, input: Data) {
             ["waste", patch.category],
             ["unit", patch.unit],
           ]
-        : [["status", patch.condition]];
+        : patch.condition ? [["status", patch.condition]] : [];
   for (const [kind, label] of pairs)
     if (
       !(await db.one(

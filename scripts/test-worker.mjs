@@ -44,3 +44,17 @@ try {
 } finally {
   await worker.stop();
 }
+
+// Rebuild a populated database too: cascade relationships must survive.
+function localSQL(args) {
+  const result = spawnSync(process.execPath, ["node_modules/wrangler/wrangler-dist/cli.js", "d1", "execute", "DB", "--local", "--config", "tests/worker-smoke/wrangler.jsonc", "--persist-to", state, "--json", ...args], {encoding:"utf8",env:{...process.env,CI:"true"}});
+  assert.equal(result.status,0,result.stderr);
+  return JSON.parse(result.stdout).map(r=>r.results);
+}
+const snapshot = "SELECT * FROM reports ORDER BY id; SELECT * FROM record_photos ORDER BY id; SELECT * FROM delivery_attempts ORDER BY id;";
+const before = localSQL(["--command",snapshot]);
+assert.ok(before[0].length > 0, "migration fixture contains a report");
+localSQL(["--file","migrations/0003_simplified_submissions.sql"]);
+assert.deepEqual(localSQL(["--command",snapshot]),before,"migration preserves complete reports, photographs and deliveries");
+assert.deepEqual(localSQL(["--command","PRAGMA foreign_key_check"]),[[]]);
+console.log("PASS populated migration preserves reports, photo relationships and delivery metadata");

@@ -1,5 +1,6 @@
 import { z } from "zod";
 export const structureTypes = ["Concrete/Blocks Building", "Animal Shelters", "Metal Structures"] as const;
+export const submissionWasteTypes = ["Mixed domestic wastes (Rubber – Plastics – carton - old barrel - old pipes - wood)"] as const;
 export const wasteTypes = [
   "Palm Waste",
   "Tree Branches",
@@ -58,18 +59,16 @@ export const reportSchema = z
   .superRefine((v, c) => {
     const error = (message: string) => c.addIssue({ code: "custom", message });
     if (v.kind === "waste") {
-      if (!v.site || !v.category || !v.quantity || !v.unit)
-        error("Site, waste type, quantity and unit are required.");
+      if (!v.category || !v.quantity || !v.unit)
+        error("Waste type, quantity and unit are required.");
       if (v.category === "Other" && !v.description.trim())
         error("Describe the other waste type.");
     } else if (
-      !v.facility_id ||
-      !v.condition ||
       !v.site ||
       !v.structure_type ||
       !v.description.trim()
     )
-      error("Facility, site name, structure type, condition and observations are required.");
+      error("Site name, structure type and observations are required.");
   });
 export const locationSchema = z.object({
   latitude: z.number().min(-90).max(90),

@@ -11,8 +11,7 @@ import {
 } from "lucide-react";
 import { api, formatDate, type Row } from "@/lib/client";
 import {
-  wasteTypes,
-  units,
+  submissionWasteTypes,
   statuses,
   facilityCategories,
   validateGPS,
@@ -254,7 +253,7 @@ export default function ReportForm({
         result = await api("report.submit", {
           ...body,
           kind,
-          quantity: kind === "waste" ? Number(values.quantity) : undefined,
+          ...(kind === "waste" ? { category: values.category, quantity: Number(values.quantity), unit: "Kilograms (kg)", site: undefined, description: "" } : { facility_id: undefined, condition: undefined }),
           location_id: gps?.id,
           idempotency_key: idempotency.current,
         });
@@ -347,10 +346,8 @@ export default function ReportForm({
           <div className="form-grid">
             {kind === "waste" ? (
               <>
-                {input("site", "Site Name")}
-                {select("category", "Waste type", opts("waste", wasteTypes))}
-                {input("quantity", "Estimated quantity", true, "number")}
-                {select("unit", "Measurement unit", opts("unit", units))}
+                {select("category", "Waste Type", [...submissionWasteTypes])}
+                {input("quantity", "Estimated Amount (KGs)", true, "number")}
               </>
             ) : kind === "facility" ? (
               <>
@@ -409,33 +406,13 @@ export default function ReportForm({
               </>
             ) : (
               <>
-                <label>
-                  Authorized facility
-                  <select
-                    required
-                    value={values.facility_id || ""}
-                    onChange={(e) => field("facility_id", e.target.value)}
-                  >
-                    <option value="">Select a facility</option>
-                    {facilities.map((f) => (
-                      <option key={f.id} value={f.id}>
-                        {f.number} · {f.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                {select(
-                  "condition",
-                  "Facility condition",
-                  opts("status", statuses),
-                )}
                 {input("site", "Site Name")}
                 {select("structure_type", "Type of Structure", [...structureTypes])}
               </>
             )}
           </div>
           <p className="muted">Submission date and time are captured automatically when you submit.</p>
-          <label>
+          {kind !== "waste" && <label>
             {kind === "inspection" ? "Observations" : "Description / remarks"}
             <textarea
               rows={3}
@@ -445,7 +422,7 @@ export default function ReportForm({
               onChange={(e) => field("description", e.target.value)}
               placeholder="Describe what you observed on site…"
             />
-          </label>
+          </label>}
         </section>
         <PhotoInput photos={photos} setPhotos={setPhotos} onView={onPhoto} />
         {kind !== "facility" && (
@@ -453,7 +430,7 @@ export default function ReportForm({
             <div className="section-label">
               <span className="step-number">03</span>
               <div>
-                <h3>Verify your location</h3>
+                <h3>Upload your location</h3>
                 <p>
                   Capture GPS, open the map, and explicitly confirm your
                   position.
