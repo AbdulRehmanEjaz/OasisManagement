@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { api, read, formatDate, type Row } from "@/lib/client";
 import Modal from "./modal";
+import { structureTypes } from "@/lib/validation";
 import { Button } from "./ui/button";
 const LocationMap = dynamic(() => import("./map"), {
   ssr: false,
@@ -160,6 +161,7 @@ export default function RecordDetail({
                 type === "facilities"
                   ? {
                       name: values.name,
+                      structure_type: values.structure_type,
                       category: values.category,
                       site: values.site,
                       description: values.description,
@@ -179,6 +181,8 @@ export default function RecordDetail({
                       }
                     : {
                         condition: values.condition,
+                        site: values.site,
+                        structure_type: values.structure_type,
                         description: values.description,
                       };
               await api("record.update", { type, id: r.id, patch });
@@ -191,6 +195,7 @@ export default function RecordDetail({
           }}
         >
           <div className="form-grid">
+            {type !== "waste" && <label>Type of Structure<select required value={values.structure_type || ""} onChange={(e) => field("structure_type", e.target.value)}><option value="">Select structure type</option>{structureTypes.map((value) => <option key={value}>{value}</option>)}</select></label>}
             {type === "facilities" ? (
               <>
                 {input("name", "Facility name")}
@@ -227,7 +232,7 @@ export default function RecordDetail({
                 {select("unit", "Unit", "unit")}
               </>
             ) : (
-              select("condition", "Condition", "status")
+              <>{input("site", "Site Name")}{select("condition", "Condition", "status")}</>
             )}
           </div>
           <label>
@@ -250,6 +255,7 @@ export default function RecordDetail({
               type === "facilities"
                 ? {
                     "Facility number": r.number,
+                    "Type of Structure": r.structure_type || "—",
                     "Project / site": r.site,
                     Category: r.category,
                     Status: r.status,
@@ -269,6 +275,8 @@ export default function RecordDetail({
                     }
                   : {
                       "Inspection number": r.number,
+                      "Site Name": r.site || r.facilities?.site || "—",
+                      "Type of Structure": r.structure_type || "—",
                       Facility: `${r.facilities?.number || ""} ${r.facilities?.name || "Reference unavailable"}`,
                       Condition: r.condition,
                       "Inspection date": r.inspection_date,

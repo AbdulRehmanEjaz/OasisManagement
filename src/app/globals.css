@@ -558,6 +558,11 @@ tbody tr:hover {
   text-transform: uppercase;
 }
 .modal {
+  position: fixed;
+  inset: 0;
+  margin: auto;
+  height: fit-content;
+  overflow-y: auto;
   border: none;
   border-radius: 26px;
   padding: 0;

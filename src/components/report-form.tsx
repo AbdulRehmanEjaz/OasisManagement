@@ -16,6 +16,7 @@ import {
   statuses,
   facilityCategories,
   validateGPS,
+  structureTypes,
 } from "@/lib/validation";
 import Modal from "./modal";
 import PhotoInput, { type Photo } from "./photo-input";
@@ -346,7 +347,7 @@ export default function ReportForm({
           <div className="form-grid">
             {kind === "waste" ? (
               <>
-                {input("site", "Project / site name")}
+                {input("site", "Site Name")}
                 {select("category", "Waste type", opts("waste", wasteTypes))}
                 {input("quantity", "Estimated quantity", true, "number")}
                 {select("unit", "Measurement unit", opts("unit", units))}
@@ -354,12 +355,13 @@ export default function ReportForm({
             ) : kind === "facility" ? (
               <>
                 {input("name", "Facility name")}
+                {select("structure_type", "Type of Structure", [...structureTypes])}
                 {select(
                   "category",
                   "Facility category",
                   opts("facility", facilityCategories),
                 )}
-                {input("site", "Project / site name")}
+                {input("site", "Site Name")}
                 {select("status", "Current status", opts("status", statuses))}
                 <label>
                   Assigned supervisor
@@ -427,10 +429,12 @@ export default function ReportForm({
                   "Facility condition",
                   opts("status", statuses),
                 )}
-                {input("inspection_date", "Inspection date", true, "date")}
+                {input("site", "Site Name")}
+                {select("structure_type", "Type of Structure", [...structureTypes])}
               </>
             )}
           </div>
+          <p className="muted">Submission date and time are captured automatically when you submit.</p>
           <label>
             {kind === "inspection" ? "Observations" : "Description / remarks"}
             <textarea

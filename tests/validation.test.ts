@@ -70,14 +70,15 @@ test("Inspections require authorized reference metadata and observations", () =>
     facility_id: uuid,
     condition: "Operational",
     description: "Inspected on site",
-    inspection_date: "2026-10-21",
+    structure_type: "Metal Structures",
   };
   assert.ok(reportSchema.safeParse(data).success);
   for (const key of [
     "facility_id",
     "condition",
     "description",
-    "inspection_date",
+    "site",
+    "structure_type",
   ])
     assert.equal(
       reportSchema.safeParse({ ...data, [key]: undefined }).success,

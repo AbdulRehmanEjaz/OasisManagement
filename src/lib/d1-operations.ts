@@ -6,7 +6,12 @@ import {
   facilitySchema,
   locationSchema,
   validateGPS,
+  structureTypes,
 } from "./validation";
+export function submissionDate(now = new Date(), timezone = process.env.APP_TIMEZONE || "Asia/Riyadh") {
+  const parts = new Intl.DateTimeFormat("en", { timeZone: timezone, year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(now);
+  return ["year", "month", "day"].map(type => parts.find(p => p.type === type)!.value).join("-");
+}
 const uuid = () => crypto.randomUUID();
 const tables: Record<string, string> = {
   waste: "reports",
@@ -241,7 +246,8 @@ export async function verifyLocation(
 }
 export async function submitReport(db: D1Store, actor: Actor, input: unknown) {
   if (!canSubmit(actor.role)) throw new HttpError("FORBIDDEN", 403);
-  const p = reportSchema.parse(input);
+  // Device-provided dates are never trusted as the submission date.
+  const p = reportSchema.parse({ ...(input as Data), inspection_date: submissionDate() });
   const previous = () =>
     db.one(
       "SELECT id,number,created_at FROM reports WHERE supervisor_id=? AND idempotency_key=? AND kind=?",
@@ -262,7 +268,7 @@ export async function submitReport(db: D1Store, actor: Actor, input: unknown) {
   try {
     await db.write(actor, "submit", [
       db.stmt(
-        `INSERT INTO reports(id,kind,supervisor_id,site,category,quantity,unit,description,facility_id,condition,inspection_date,location_id,latitude,longitude,gps_accuracy_meters,gps_captured_at,location_confirmed_at,photo_ids,idempotency_key) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+        `INSERT INTO reports(id,kind,supervisor_id,site,category,quantity,unit,description,facility_id,condition,inspection_date,location_id,latitude,longitude,gps_accuracy_meters,gps_captured_at,location_confirmed_at,photo_ids,idempotency_key,structure_type) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
         id,
         p.kind,
         actor.id,
@@ -282,6 +288,7 @@ export async function submitReport(db: D1Store, actor: Actor, input: unknown) {
         loc.confirmed_at,
         JSON.stringify(p.photo_ids),
         p.idempotency_key,
+        p.structure_type,
       ),
       db.audit(actor.id, "reports", id, "SUBMITTED"),
     ]);
@@ -297,11 +304,11 @@ export async function registerFacility(
   actor: Actor,
   input: unknown,
 ) {
-  const p = facilitySchema.parse(input),
+  const p = facilitySchema.extend({ structure_type: z.enum(structureTypes) }).parse(input),
     id = uuid();
   await db.write(actor, "admin", [
     db.stmt(
-      `INSERT INTO facilities(id,name,category,site,description,status,latitude,longitude,assigned_supervisor,remarks,photo_ids,creator_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)`,
+      `INSERT INTO facilities(id,name,category,site,description,status,latitude,longitude,assigned_supervisor,remarks,photo_ids,creator_id,structure_type) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)`,
       id,
       p.name,
       p.category,
@@ -314,6 +321,7 @@ export async function registerFacility(
       p.remarks,
       JSON.stringify(p.photo_ids),
       actor.id,
+      p.structure_type,
     ),
     db.audit(actor.id, "facilities", id, "CREATED"),
   ]);
@@ -353,6 +361,8 @@ export async function updateRecord(db: D1Store, actor: Actor, input: Data) {
       .object({
         condition: z.string().min(1).max(100),
         description: z.string().min(1).max(4000),
+        site: z.string().trim().min(1).max(200).optional(),
+        structure_type: z.enum(structureTypes).optional(),
       })
       .parse(input.patch);
   const pairs =

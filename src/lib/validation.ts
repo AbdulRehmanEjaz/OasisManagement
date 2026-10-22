@@ -1,4 +1,5 @@
 import { z } from "zod";
+export const structureTypes = ["Concrete/Blocks Building", "Animal Shelters", "Metal Structures"] as const;
 export const wasteTypes = [
   "Palm Waste",
   "Tree Branches",
@@ -46,6 +47,7 @@ export const reportSchema = z
       ),
     category: z.string().max(100).optional(),
     site: z.string().trim().max(200).optional(),
+    structure_type: z.enum(structureTypes).optional(),
     quantity: z.number().positive().max(100000000).optional(),
     unit: z.string().max(50).optional(),
     description: z.string().max(4000).default(""),
@@ -63,10 +65,11 @@ export const reportSchema = z
     } else if (
       !v.facility_id ||
       !v.condition ||
-      !v.inspection_date ||
+      !v.site ||
+      !v.structure_type ||
       !v.description.trim()
     )
-      error("Facility, date, condition and observations are required.");
+      error("Facility, site name, structure type, condition and observations are required.");
   });
 export const locationSchema = z.object({
   latitude: z.number().min(-90).max(90),
@@ -93,6 +96,7 @@ export const facilitySchema = z.object({
   name: z.string().trim().min(2).max(200),
   category: z.string().min(1).max(100),
   site: z.string().trim().min(1).max(200),
+  structure_type: z.enum(structureTypes).optional(),
   description: z.string().max(4000).default(""),
   status: z.string().min(1).max(100),
   latitude: z.number().min(-90).max(90),

@@ -10,6 +10,7 @@ import {
   registerFacility,
   updateRecord,
   deleteRecord,
+  submissionDate,
 } from "../../src/lib/d1-operations";
 import { checkPin } from "../../src/lib/pin-crypto";
 import { processPhoto } from "../../src/worker/photo-processing";
@@ -134,6 +135,7 @@ export default {
       );
       const facility = await registerFacility(db, admin, {
         name: "Fixture facility",
+        structure_type: "Concrete/Blocks Building",
         category: "Office / Site Cabin",
         site: "Fixture site",
         status: "Operational",
@@ -304,7 +306,9 @@ export default {
         kind: "inspection",
         facility_id: facility.id,
         condition: "Operational",
-        inspection_date: "2026-10-21",
+        inspection_date: "1900-01-01",
+        site: "Fixture inspection site",
+        structure_type: "Metal Structures",
         description: "Fixture inspection",
         location_id: locationId,
         photo_ids: photoIds,
@@ -314,6 +318,8 @@ export default {
         inspection.number === "OFT-I-000001",
         "facility inspection module and numbering",
       );
+      const saved = await db.one("SELECT site,structure_type,inspection_date FROM reports WHERE id=?", inspection.id);
+      assert(saved?.site === "Fixture inspection site" && saved?.structure_type === "Metal Structures" && saved?.inspection_date === submissionDate(), "inspection stores site, structure and server submission date");
       await deleteRecord(db, admin, { type: "facilities", id: facility.id });
       assert(
         !!(await db.one("SELECT id FROM reports WHERE id=?", inspection.id)),
