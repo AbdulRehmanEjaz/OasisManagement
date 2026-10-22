@@ -1,3 +1,5 @@
+import {photoZip} from "../../src/lib/photo-zip";
+import {unzipSync} from "fflate";
 // Isolated local workerd + D1 integration tests. Never deployed to production.
 import { env } from "cloudflare:workers";
 import type { D1Database } from "@cloudflare/workers-types";
@@ -30,6 +32,13 @@ export default {
       } catch {
         denied = true;
       }
+      async function* zipPhotos() {yield {number:"COSA-0001",url:"https://i.ibb.co/fixture/photo.jpg"};}
+      const originalPhoto = new Uint8Array([255,216,255,0,9,1]);
+      const zipParts: Uint8Array[] = [];
+      for await (const chunk of photoZip(zipPhotos(),new AbortController().signal,(async()=>new Response(originalPhoto,{headers:{"Content-Type":"image/jpeg"}})) as typeof fetch)) zipParts.push(chunk);
+      const archive = new Uint8Array(zipParts.reduce((n,p)=>n+p.length,0));let zipOffset=0;for(const part of zipParts){archive.set(part,zipOffset);zipOffset+=part.length;}
+      const zipPhoto = unzipSync(archive)["COSA-0001/COSA-0001-01.jpg"];
+      assert(zipPhoto?.length === originalPhoto.length && zipPhoto.every((v,i)=>v===originalPhoto[i]), "Worker streams ZIP with unchanged report-numbered photos");
       assert(denied, label);
     };
     try {

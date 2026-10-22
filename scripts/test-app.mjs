@@ -69,6 +69,7 @@ try {
   );
   r = await request("/api/access");
   check(r.status === 401, "users route requires authentication");
+  check((await request("/api/report-photos?kind=waste")).status === 401, "photo exports require authentication");
   r = await request(
     "/api/setup",
     { full_name: "Fixture administrator", pin: "987" },
@@ -112,6 +113,7 @@ try {
     r.status === 200 && (await r.text()).includes("oasis"),
     "D1 session opens the dashboard",
   );
+  check((await request("/api/report-photos?kind=waste",null,adminCookie)).status === 200, "admin can read photo export counts");
   r = await request("/api/access", null, adminCookie);
   const accounts = await r.json();
   check(
@@ -134,6 +136,7 @@ try {
   r = await request("/api/auth", { action: "login", pin: "876" });
   const viewerCookie = (r.headers.get("set-cookie") || "").split(";")[0];
   check(r.status === 200, "PIN-only viewer login");
+  check((await request("/api/report-photos?kind=waste&download=1",null,viewerCookie)).status === 403, "viewer cannot download admin photo archive");
   const viewerOverview = await (await request("/oasis", null, viewerCookie)).text();
   check(viewerOverview.includes("Report maps") && viewerOverview.includes("Waste Reports") && viewerOverview.includes("Facilities"), "Viewer Overview has both report-map tabs");
   const adminOverview = await (await request("/oasis", null, adminCookie)).text();
@@ -153,6 +156,7 @@ try {
   r = await request("/api/auth", { action: "login", pin: "765" });
   const supervisorCookie = (r.headers.get("set-cookie") || "").split(";")[0];
   check(r.status === 200, "PIN-only supervisor login");
+  check((await request("/api/report-photos?kind=inspection&download=1",null,supervisorCookie)).status === 403, "supervisor cannot download admin photo archive");
   r = await request("/api/operations?type=waste", null, supervisorCookie);
   check(r.status === 200 && (await r.json()).count === 0, "supervisor can read own-report list through HTTP");
   r = await request(

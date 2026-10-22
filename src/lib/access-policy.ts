@@ -26,6 +26,7 @@ export function allowedViews(role: string) {
         "waste",
         "facilities",
         "inspections",
+        "reports-management",
         "notifications",
         "users",
         "settings",

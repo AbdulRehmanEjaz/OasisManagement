@@ -1,0 +1,45 @@
+import { Zip, ZipPassThrough } from "fflate";
+
+export type ExportPhoto = { number: string; url: string };
+export function trustedPhotoUrl(value: string) {
+  const url = new URL(value);
+  if (url.protocol !== "https:" || url.hostname !== "i.ibb.co" || url.username || url.password || url.port) throw new Error("Invalid photo hosting URL.");
+  return url.href;
+}
+export async function* photoZip(photos: AsyncIterable<ExportPhoto>, signal: AbortSignal, fetchPhoto: typeof fetch = fetch): AsyncGenerator<Uint8Array> {
+  const pending: Uint8Array[] = [];
+  const zip = new Zip((error, chunk) => { if (error) throw error; pending.push(chunk); });
+  const numbers = new Map<string, number>();
+  let size = 0, count = 0;
+  try {
+    for await (const photo of photos) {
+      if (signal.aborted) throw new Error("Download cancelled.");
+      if (++count > 65535) throw new Error("This archive exceeds the ZIP file count limit.");
+      const response = await fetchPhoto(trustedPhotoUrl(photo.url), { redirect: "error", signal: AbortSignal.any([signal, AbortSignal.timeout(60000)]) });
+      if (!response.ok || !response.body) throw new Error(`Could not download a photo for ${photo.number}. Please retry.`);
+      const mime = response.headers.get("content-type")?.split(";")[0].toLowerCase();
+      const extension = ({"image/jpeg":"jpg", "image/png":"png", "image/webp":"webp", "image/gif":"gif"} as Record<string,string>)[mime || ""];
+      if (!extension) throw new Error("The image host returned an unsupported photo response.");
+      const report = photo.number.replace(/[^a-zA-Z0-9_-]/g, "_");
+      const index = (numbers.get(report) || 0) + 1;
+      numbers.set(report, index);
+      const file = new ZipPassThrough(`${report}/${report}-${String(index).padStart(2,"0")}.${extension}`);
+      zip.add(file);
+      const reader = response.body.getReader();
+      try {
+        while (true) {
+          const part = await reader.read();
+          if (part.done) break;
+          size += part.value.length;
+          if (size > 0xffffffff - 16 * 1024 * 1024) throw new Error("This archive exceeds the 4 GB ZIP limit.");
+          file.push(part.value);
+          while (pending.length) yield pending.shift()!;
+        }
+        file.push(new Uint8Array(), true);
+        while (pending.length) yield pending.shift()!;
+      } finally { await reader.cancel().catch(() => {}); reader.releaseLock(); }
+    }
+    zip.end();
+    while (pending.length) yield pending.shift()!;
+  } finally { zip.terminate(); }
+}

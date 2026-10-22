@@ -2546,3 +2546,14 @@ body:has(.operations-hub) { background: #f5f2e9; }
 .hub-footer > span:nth-child(2) { display: flex; gap: 6px; align-items: center; }
 
 @media (max-width: 540px) { .hub-brand { flex-wrap: wrap; gap: 14px; } .hub-brand > img { width: min(100%, 330px); } .hub-brand > div { width: 100%; border-left: 0; padding-left: 0; margin-left: 0; text-align: center; font-size: 26px; } }
+
+.export-panel { padding: 26px; }
+.export-panel [role="tab"] { display: inline-flex; align-items: center; gap: 7px; }
+.export-panel [role="tabpanel"] { padding-top: 28px; max-width: 680px; }
+.export-symbol { display: grid; place-items: center; width: 60px; height: 60px; background: #e6efd9; border-radius: 18px; margin-bottom: 20px; color: #386b42; }
+.export-panel h2 { font-size: 24px; margin: 0 0 8px; }
+.export-panel p { font-size: 14px; line-height: 1.65; }
+.export-counts { display: flex; gap: 30px; margin: 22px 0; color: #6b7e62; }
+.export-counts strong { font-size: 26px; color: var(--ink); margin-right: 5px; }
+.export-example { font-family: monospace; padding: 10px 12px; background: var(--soft); border-radius: 9px; overflow-wrap: anywhere; }
+@media(max-width:540px) { .export-panel { padding: 18px; } .export-panel [role="tab"] { font-size: 12px; padding: 9px; } }

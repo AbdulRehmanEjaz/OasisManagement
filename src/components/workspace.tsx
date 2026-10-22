@@ -34,6 +34,7 @@ import Modal from "./modal";
 import ReportForm from "./report-form";
 import RecordDetail from "./record-detail";
 import AccessManagement from "./access-management";
+import ReportsManagement from "./reports-management";
 import OverviewReportMap from "./overview-report-map";
 import { allowedViews, canReadReports, canSubmit } from "@/lib/access-policy";
 
@@ -44,7 +45,8 @@ type View =
   | "inspections"
   | "notifications"
   | "users"
-  | "settings";
+  | "settings"
+  | "reports-management";
 const labels: Record<View, string> = {
   dashboard: "Overview",
   waste: "Oasis Waste Tracking",
@@ -53,6 +55,7 @@ const labels: Record<View, string> = {
   notifications: "Notifications",
   users: "User management",
   settings: "Settings",
+  "reports-management": "Reports Management",
 };
 const icons = {
   dashboard: LayoutDashboard,
@@ -61,6 +64,7 @@ const icons = {
   notifications: Bell,
   users: Users,
   settings: Settings,
+  "reports-management": FileText,
 };
 export default function Workspace({
   profile,
@@ -167,7 +171,7 @@ export default function Workspace({
           if (view === "dashboard") {
             const d = await read("overview");
             if (alive) setOverview(d);
-          } else if (view === "settings") {
+          } else if (["settings", "reports-management"].includes(view)) {
             /* Options loaded by the shared query. */
           } else {
             const d = await read(view, { search, category, supervisor, date, sort, page: String(page) });
@@ -240,7 +244,7 @@ export default function Workspace({
     "dashboard",
     "waste",
     "facilities",
-    ...(admin ? (["notifications", "users"] as View[]) : []),
+    ...(admin ? (["reports-management", "notifications", "users"] as View[]) : []),
     "settings",
   ].filter((v) => panelViews.includes(v)) as View[];
   return (
@@ -425,7 +429,7 @@ export default function Workspace({
                           ? "Report updates and email delivery status."
                           : view === "users"
                             ? "Manage accounts, panel access, and PINs."
-                            : "Account and workspace settings."}
+                            : (view === "reports-management" ? "Download report photos, organised by report number." : "Account and workspace settings.")}
               </p>
             </div>
             {submitAllowed && (
@@ -546,6 +550,8 @@ export default function Workspace({
                 </article>
               </div>}
             </>
+          ) : view === "reports-management" && admin ? (
+            <ReportsManagement />
           ) : view === "users" && admin ? (
             <AccessManagement profile={profile} onChange={reload} />
           ) : view === "settings" ? (
