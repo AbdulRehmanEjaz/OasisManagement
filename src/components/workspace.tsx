@@ -1,6 +1,5 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
-import dynamic from "next/dynamic";
 import {
   Leaf,
   LayoutDashboard,
@@ -21,14 +20,12 @@ import {
   ChevronRight,
   Eye,
   Map,
-  Table2,
   ShieldCheck,
   RefreshCw,
   Menu,
   X,
   AlertCircle,
   Mail,
-  ClipboardCheck,
   ExternalLink,
 } from "lucide-react";
 import { api, read, formatDate, type Profile, type Row } from "@/lib/client";
@@ -37,11 +34,9 @@ import Modal from "./modal";
 import ReportForm from "./report-form";
 import RecordDetail from "./record-detail";
 import AccessManagement from "./access-management";
+import OverviewReportMap from "./overview-report-map";
 import { allowedViews, canReadReports, canSubmit } from "@/lib/access-policy";
-const LocationMap = dynamic(() => import("./map"), {
-  ssr: false,
-  loading: () => <div className="map-loading">Loading map…</div>,
-});
+
 type View =
   | "dashboard"
   | "waste"
@@ -54,7 +49,7 @@ const labels: Record<View, string> = {
   dashboard: "Overview",
   waste: "Oasis Waste Tracking",
   facilities: "OnSite Facilities Tracking",
-  inspections: "Facility inspections",
+  inspections: "OnSite Facilities Tracking",
   notifications: "Notifications",
   users: "User management",
   settings: "Settings",
@@ -98,7 +93,6 @@ export default function Workspace({
     [date, setDate] = useState(""),
     [sort, setSort] = useState("newest"),
     [page, setPage] = useState(0),
-    [mapMode, setMapMode] = useState(true),
     [filters, setFilters] = useState(false),
     [facilities, setFacilities] = useState<Row[]>([]),
     [users, setUsers] = useState<Row[]>([]),
@@ -119,7 +113,7 @@ export default function Workspace({
     setNow(new Date());
     const q = new URLSearchParams(location.search);
     const v = q.get("view");
-    if (v && panelViews.includes(v)) { setView(v as View); setMapMode(["waste", "facilities", "inspections"].includes(v)); }
+    if (v && panelViews.includes(v)) setView(v === "facilities" ? "inspections" : v as View);
     const id = q.get("record");
     if (
       configured &&
@@ -176,22 +170,7 @@ export default function Workspace({
           } else if (view === "settings") {
             /* Options loaded by the shared query. */
           } else {
-            const params = { search, category, supervisor, date, sort };
-            const satelliteView = mapMode && ["waste", "facilities", "inspections"].includes(view);
-            async function allLocations(type: string) {
-              const first = await read(type, {...params, map: "1", page: "0"});
-              const data = first.data.map((r: Row) => ({...r, mapRecordType: type}));
-              for (let offset = 1000; offset < first.count; offset += 1000) {
-                const next = await read(type, {...params, map: "1", page: String(offset / 1000)});
-                data.push(...next.data.map((r: Row) => ({...r, mapRecordType: type})));
-              }
-              return data;
-            }
-            const d = satelliteView ? await (async () => {
-              const data = await allLocations(view);
-              if (view === "facilities") data.push(...await allLocations("inspections"));
-              return {data, count: data.length};
-            })() : await read(view, {...params, page: String(page)});
+            const d = await read(view, { search, category, supervisor, date, sort, page: String(page) });
             if (alive) {
               setRows(d.data);
               setTotal(d.count || 0);
@@ -222,10 +201,10 @@ export default function Workspace({
     date,
     sort,
     page,
-    mapMode,
     refresh,
   ]);
   function navigate(v: View) {
+    if (v === "facilities") v = "inspections";
     if (!panelViews.includes(v)) return;
     setView(v);
     setSearch("");
@@ -235,10 +214,9 @@ export default function Workspace({
     setPage(0);
     setRows([]);
     setTotal(0);
-    setMapMode(["waste", "facilities", "inspections"].includes(v));
     setMenu(false);
     if (v === "waste") setModule("waste");
-    if (v === "facilities" || v === "inspections") setModule("inspection");
+    if (v === "inspections") setModule("inspection");
     history.replaceState(null, "", v === "dashboard" ? "/" : `/?view=${v}`);
   }
   async function logout() {
@@ -487,56 +465,8 @@ export default function Workspace({
           )}
           {view === "dashboard" ? (
             <>
-              {configured && browse && (
-                <div className={`stats-grid ${viewer ? "viewer-stats" : ""}`}>
-                  {(viewer ? [
-                    {key: "waste", title: "Total Waste Reports", icon: Recycle, color: "mint"},
-                    {key: "inspections", title: "Total Site Facilities Reported", icon: Building2, color: "sand"},
-                  ] : [
-                    {
-                      key: "waste",
-                      title: "Waste reports",
-                      icon: Recycle,
-                      color: "mint",
-                    },
-                    {
-                      key: "facilities",
-                      title: admin
-                        ? "Registered facilities"
-                        : "Assigned facilities",
-                      icon: Building2,
-                      color: "sand",
-                    },
-                    ...(viewer
-                      ? []
-                      : [
-                          {
-                            key: "today",
-                            title: "Submitted today",
-                            icon: ClipboardCheck,
-                            color: "lilac",
-                          },
-                        ]),
-                    {
-                      key: admin ? "supervisors" : "inspections",
-                      title: admin ? "Active supervisors" : "Inspections",
-                      icon: admin ? Users : ShieldCheck,
-                      color: "gray",
-                    },
-                  ]).map((s) => (
-                    <article className="stat-card" key={s.key}>
-                      <div>
-                        <span>{s.title}</span>
-                        <span className={"stat-icon " + s.color}>
-                          <s.icon size={21} />
-                        </span>
-                      </div>
-                      <strong>{loading ? "…" : count(s.key)}</strong>
-                    </article>
-                  ))}
-                </div>
-              )}
-              <div className="modules-grid">
+              {browse && configured && <OverviewReportMap refresh={refresh} onSelect={(row, type) => setDetail({row, type})} />}
+              {!browse && <div className="modules-grid">
                 <article className="module-card waste-module">
                   <div className="module-header">
                     <span className="module-icon">
@@ -612,63 +542,7 @@ export default function Workspace({
                     )}
                   </footer>
                 </article>
-              </div>
-              {configured && browse && (
-                <article className="activity-card">
-                  <div className="card-heading">
-                    <h2>Recent activity</h2>
-                    <Button
-                      variant="ghost"
-                      onClick={() =>
-                        navigate(module === "waste" ? "waste" : "inspections")
-                      }
-                    >
-                      View all
-                      <ArrowUpRight size={18} />
-                    </Button>
-                  </div>
-                  {overview?.recent?.length ? (
-                    <div className="activity-list">
-                      {overview.recent.map((r: Row) => (
-                        <button
-                          key={r.id}
-                          onClick={() => {
-                            const t = r.number.startsWith("COSA")
-                              ? "waste"
-                              : "inspections";
-                            read(t, { id: r.id })
-                              .then((d) =>
-                                setDetail({ row: d.data[0], type: t }),
-                              )
-                              .catch((e) => setError(e.message));
-                          }}
-                        >
-                          <span className="activity-icon">
-                            {r.number.startsWith("COSA") ? (
-                              <Recycle size={21} />
-                            ) : (
-                              <Building2 size={21} />
-                            )}
-                          </span>
-                          <div>
-                            <strong>{r.number}</strong>
-                            <small>{r.category || r.condition}</small>
-                          </div>
-                          <time>
-                            {formatDate(r.created_at, timezone, true)}
-                          </time>
-                          <ArrowUpRight size={18} />
-                        </button>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="activity-empty">
-                      <FileText size={24} />
-                      <p>No reports submitted yet.</p>
-                    </div>
-                  )}
-                </article>
-              )}
+              </div>}
             </>
           ) : view === "users" && admin ? (
             <AccessManagement profile={profile} onChange={reload} />
@@ -683,40 +557,7 @@ export default function Workspace({
             />
           ) : (
             <>
-              {view === "waste" && admin && (
-                <div className="stats-grid">
-                  {[
-                    { key: "waste", label: "Total waste reports" },
-                    { key: "wasteToday", label: "Waste reports today" },
-                    { key: "supervisors", label: "Active supervisors" },
-                    { key: "pending", label: "Pending / failed emails" },
-                  ].map((s) => (
-                    <article className="stat-card" key={s.key}>
-                      <div>
-                        <span>{s.label}</span>
-                      </div>
-                      <strong>{count(s.key)}</strong>
-                    </article>
-                  ))}
-                </div>
-              )}
               <div className="records-tabs">
-                {["facilities", "inspections"].includes(view) && (
-                  <div className="segmented">
-                    <button
-                      className={view === "facilities" ? "selected" : ""}
-                      onClick={() => navigate("facilities")}
-                    >
-                      Facility register
-                    </button>
-                    <button
-                      className={view === "inspections" ? "selected" : ""}
-                      onClick={() => navigate("inspections")}
-                    >
-                      Inspection history
-                    </button>
-                  </div>
-                )}
                 {["waste", "facilities", "inspections"].includes(view) && (
                   <div className="list-tools">
                     <div className="search-field">
@@ -744,30 +585,6 @@ export default function Workspace({
                       <SlidersHorizontal size={17} />
                       <span>Filters</span>
                     </Button>
-                    {browse && (
-                      <div className="segmented icon-segment">
-                        <button
-                          className={!mapMode ? "selected" : ""}
-                          aria-label="Table view"
-                          onClick={() => {
-                            setMapMode(false);
-                            setPage(0);
-                          }}
-                        >
-                          <Table2 size={18} />
-                        </button>
-                        <button
-                          className={mapMode ? "selected" : ""}
-                          aria-label="Map view"
-                          onClick={() => {
-                            setMapMode(true);
-                            setPage(0);
-                          }}
-                        >
-                          <Map size={18} />
-                        </button>
-                      </div>
-                    )}
                   </div>
                 )}
               </div>
@@ -879,19 +696,6 @@ export default function Workspace({
                     <RefreshCw className="spin" />
                     <h3>Loading your records…</h3>
                   </div>
-                ) : mapMode ? (
-                  <>
-                    <LocationMap
-                      records={rows}
-                      onSelect={(r) => setDetail({ row: r, type: r.mapRecordType || view })}
-                    />
-                    {!rows.length && (
-                      <p className="notice">
-                        No saved locations match these filters. The map has no
-                        report markers.
-                      </p>
-                    )}
-                  </>
                 ) : !rows.length ? (
                   <div className="empty-state">
                     <span className="empty-icon">
@@ -1039,8 +843,8 @@ export default function Workspace({
                             <td>
                               {view === "inspections" ? (
                                 <>
-                                  {r.facilities?.name}
-                                  <small>{r.condition}</small>
+                                  {r.site || r.facilities?.name}
+                                  <small>{r.structure_type || r.condition}</small>
                                 </>
                               ) : (
                                 r.category
@@ -1103,14 +907,14 @@ export default function Workspace({
                 <div className="pagination">
                   <span>
                     {configured
-                      ? mapMode && ["waste", "facilities", "inspections"].includes(view) ? `${total} mapped locations` : `${total} records · page ${page + 1}`
+                      ? `${total} records · page ${page + 1}`
                       : "Live records require D1 configuration"}
                   </span>
                   <div>
                     <Button
                       variant="ghost"
                       size="icon"
-                      disabled={mapMode || !page || loading}
+                      disabled={!page || loading}
                       aria-label="Previous page"
                       onClick={() => setPage((p) => p - 1)}
                     >
@@ -1120,7 +924,7 @@ export default function Workspace({
                       variant="ghost"
                       size="icon"
                       disabled={
-                        loading || mapMode || (page + 1) * 12 >= total
+                        loading || (page + 1) * 12 >= total
                       }
                       aria-label="Next page"
                       onClick={() => setPage((p) => p + 1)}
@@ -1224,8 +1028,7 @@ export default function Workspace({
         {viewer && (
           <button
             onClick={() => {
-              navigate("facilities");
-              setMapMode(true);
+              navigate("dashboard");
             }}
           >
             <Map size={21} />
