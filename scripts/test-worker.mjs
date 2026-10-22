@@ -58,3 +58,14 @@ localSQL(["--file","migrations/0003_simplified_submissions.sql"]);
 assert.deepEqual(localSQL(["--command",snapshot]),before,"migration preserves complete reports, photographs and deliveries");
 assert.deepEqual(localSQL(["--command","PRAGMA foreign_key_check"]),[[]]);
 console.log("PASS populated migration preserves reports, photo relationships and delivery metadata");
+// Exercise renumbering against populated records, preserving links and next counters.
+localSQL(["--file","migrations/0005_report_codes.sql"]);
+const renumbered=localSQL(["--command",snapshot]);
+assert.deepEqual(renumbered[1],before[1],"code migration preserves photo associations");
+assert.deepEqual(renumbered[2],before[2],"code migration preserves deliveries");
+assert.deepEqual(renumbered[0].map(({number,...r})=>r),before[0].map(({number,...r})=>r),"code migration only changes report numbers");
+const codes=localSQL(["--command","SELECT kind,number,row_number() OVER(PARTITION BY kind ORDER BY created_at,id) n FROM reports; SELECT kind,value,(SELECT count(*) FROM reports r WHERE r.kind=sequences.kind) expected FROM sequences WHERE kind IN ('waste','inspection');"]);
+for(const r of codes[0])assert.equal(r.number,(r.kind==='waste'?'COSA-':'OFT-')+String(r.n).padStart(3,'0'));
+for(const r of codes[1])assert.equal(r.value,r.expected);
+assert.deepEqual(localSQL(["--command","PRAGMA foreign_key_check"]),[[]]);
+console.log("PASS populated code migration preserves records and photos with exact sequential counters");

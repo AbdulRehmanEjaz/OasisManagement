@@ -80,3 +80,11 @@ Serve over HTTPS. Public ImgBB links are accessible to anyone with the URL;
 The source changes and local test results do not mean that the live D1 binding,
 credentials, private admin or live integrations have been configured. Complete
 and verify the setup before operational use.
+
+### Report exports and codes
+Admin → Reports Management has separate Waste Tracking and Facilities Tracking tabs.
+- Waste codes: COSA-001, COSA-002, …; facilities report codes: OFT-001, OFT-002, … (expand naturally beyond 999). Atomic D1 triggers allocate codes; retries do not allocate duplicates. Deleted codes are not reused after this migration.
+- Migration 0005 renumbers existing reports chronologically, preserves report IDs/photo relationships, and aligns both counters. Apply it before deploying this version.
+- ZIP uses unchanged stored ImgBB image bytes, named `COSA-001/COSA-001-01.jpg` (or `OFT-001/...`); suffixes distinguish multiple photos.
+- Excel exports are actual .xlsx files with all attached photos embedded, Riyadh submission dates, numeric coordinates/weights, clickable Google Maps links, frozen headers, and filters. Facilities Type of Structure is intentionally empty only in the export; the stored value remains unchanged.
+- Both export routes enforce Admin authorization and rate limits. JPEG/PNG images are supported by Excel (the app's upload processing stores JPEG). Image-host failures interrupt exports; retry the download. ZIP32 limits apply: under 4 GB and 65,535 archive entries.

@@ -32,16 +32,16 @@ export default {
       } catch {
         denied = true;
       }
-      async function* zipPhotos() {yield {number:"COSA-0001",url:"https://i.ibb.co/fixture/photo.jpg"};}
+      assert(denied, label);
+    };
+    try {
+      async function* zipPhotos() {yield {number:"COSA-001",url:"https://i.ibb.co/fixture/photo.jpg"};}
       const originalPhoto = new Uint8Array([255,216,255,0,9,1]);
       const zipParts: Uint8Array[] = [];
       for await (const chunk of photoZip(zipPhotos(),new AbortController().signal,(async()=>new Response(originalPhoto,{headers:{"Content-Type":"image/jpeg"}})) as typeof fetch)) zipParts.push(chunk);
       const archive = new Uint8Array(zipParts.reduce((n,p)=>n+p.length,0));let zipOffset=0;for(const part of zipParts){archive.set(part,zipOffset);zipOffset+=part.length;}
-      const zipPhoto = unzipSync(archive)["COSA-0001/COSA-0001-01.jpg"];
+      const zipPhoto = unzipSync(archive)["COSA-001/COSA-001-01.jpg"];
       assert(zipPhoto?.length === originalPhoto.length && zipPhoto.every((v,i)=>v===originalPhoto[i]), "Worker streams ZIP with unchanged report-numbered photos");
-      assert(denied, label);
-    };
-    try {
       const db = new D1Store(
         (env as unknown as { DB: D1Database }).DB,
         "isolated-test-secret-not-a-production-secret",
@@ -203,7 +203,7 @@ export default {
         submitReport(db, supervisor, input),
       ]);
       assert(report.id===concurrent.id,"concurrent retries create one report");
-      assert(report.number === "COSA-0001", "atomic sequential report number");
+      assert(report.number === "COSA-001", "atomic sequential report number");
       assert(
         (await submitReport(db, supervisor, input)).id === report.id,
         "idempotent report retry",
@@ -325,7 +325,7 @@ export default {
         idempotency_key: crypto.randomUUID(),
       });
       assert(
-        inspection.number === "OFT-I-000001",
+        inspection.number === "OFT-001",
         "standalone site inspection and numbering",
       );
       assert((await db.one("SELECT unit FROM reports WHERE id=?", report.id))?.unit === "Kilograms (kg)", "waste submissions use kilograms regardless of client unit");

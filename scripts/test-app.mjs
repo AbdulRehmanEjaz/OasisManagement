@@ -69,6 +69,7 @@ try {
   );
   r = await request("/api/access");
   check(r.status === 401, "users route requires authentication");
+  check((await request("/api/report-excel?kind=waste")).status===401,"Excel requires authentication");
   check((await request("/api/report-photos?kind=waste")).status === 401, "photo exports require authentication");
   r = await request(
     "/api/setup",
@@ -113,6 +114,9 @@ try {
     r.status === 200 && (await r.text()).includes("oasis"),
     "D1 session opens the dashboard",
   );
+  const excel=await request("/api/report-excel?kind=waste",null,adminCookie);
+  check(excel.status===200&&excel.headers.get("content-type").includes("spreadsheetml"),"admin downloads Excel workbook");
+  check(new Uint8Array(await excel.arrayBuffer())[0]===80,"Excel response is a ZIP based XLSX");
   check((await request("/api/report-photos?kind=waste",null,adminCookie)).status === 200, "admin can read photo export counts");
   r = await request("/api/access", null, adminCookie);
   const accounts = await r.json();
@@ -156,6 +160,8 @@ try {
   r = await request("/api/auth", { action: "login", pin: "765" });
   const supervisorCookie = (r.headers.get("set-cookie") || "").split(";")[0];
   check(r.status === 200, "PIN-only supervisor login");
+  check((await request("/api/report-excel?kind=waste",null,viewerCookie)).status===403,"viewer cannot export Excel");
+  check((await request("/api/report-excel?kind=inspection",null,supervisorCookie)).status===403,"supervisor cannot export Excel");
   check((await request("/api/report-photos?kind=inspection&download=1",null,supervisorCookie)).status === 403, "supervisor cannot download admin photo archive");
   r = await request("/api/operations?type=waste", null, supervisorCookie);
   check(r.status === 200 && (await r.json()).count === 0, "supervisor can read own-report list through HTTP");
