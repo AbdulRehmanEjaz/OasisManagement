@@ -1,2 +1,3 @@
-import FutureDashboardLogin from "@/components/future-dashboard-login";
-export default function Page(){return <FutureDashboardLogin title="Oasis Active Farms KPIs &amp; Performance Tracking"/>;}
+import Login from '@/components/login';
+export const metadata={title:'ADVACON · KPI Login'};
+export default function Page(){return <Login destination="/kpi" heading="Welcome to KPI Dashboard"/>;}

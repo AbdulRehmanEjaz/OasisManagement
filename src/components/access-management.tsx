@@ -7,9 +7,11 @@ import { Button } from "./ui/button";
 export default function AccessManagement({
   profile,
   onChange,
+  loginPath = "/survey/login",
 }: {
   profile: Profile | null;
   onChange: () => void;
+  loginPath?: "/survey/login" | "/kpi/login";
 }) {
   const [rows, setRows] = useState<Row[]>([]),
     [error, setError] = useState(""),
@@ -44,7 +46,7 @@ export default function AccessManagement({
         ...(change ? { id: change.id } : {}),
       });
       if (result.reauthenticate) {
-        location.href = "/survey/login";
+        location.href = loginPath;
         return;
       }
       refreshed();

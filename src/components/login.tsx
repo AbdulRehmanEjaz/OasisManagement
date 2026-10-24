@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { ArrowRight, LockKeyhole } from "lucide-react";
 import { Button } from "./ui/button";
-export default function Login() {
+export default function Login({destination="/survey",heading="Welcome to Site Survey"}:{destination?:"/survey"|"/kpi";heading?:string}) {
   const [pin, setPin] = useState(""),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false),
@@ -20,7 +20,7 @@ export default function Login() {
       });
       const d = await r.json();
       if (!r.ok) throw new Error(d.error);
-      location.href = "/survey";
+      location.href = destination;
     } catch (e) {
       setError((e as Error).message);
       setPin("");
@@ -36,7 +36,7 @@ export default function Login() {
         <span className="pin-lock">
           <LockKeyhole size={26} />
         </span>
-        <h1>Welcome to Site Survey</h1>
+        <h1>{heading}</h1>
         <p>Enter your PIN to continue.</p>
         <form onSubmit={submit}>
           <label htmlFor="panel-pin">PIN</label>

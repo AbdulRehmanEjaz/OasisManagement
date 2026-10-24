@@ -1,3 +1,6 @@
+import {createKpiReport,readKpiReports,updateKpiReport,deleteKpiReport,kpiEntrySchema} from "../../src/lib/kpi/store";
+import {calculateDashboard,saudiDate} from "../../src/lib/kpi/calculations";
+import {PROJECT} from "../../src/lib/kpi/config";
 import {importReport} from "../../src/lib/report-import";
 import {photoZip} from "../../src/lib/photo-zip";
 import {unzipSync} from "fflate";
@@ -411,6 +414,32 @@ export default {
       assert((await db.one("SELECT count(*) n FROM delivery_attempts WHERE record_id=?",facilityImport.id))?.n===0,"bulk imports do not queue unwanted emails");
       await deleteRecord(db,admin,{type:"waste",id:imported.id});
       await deleteRecord(db,admin,{type:"inspections",id:facilityImport.id});
+      assert((await readKpiReports(db,admin)).reports.length===0,"KPI project starts with zero reports and no seeded progress");
+      const kpiEntry={report_date:"2026-10-01",location:"North farm",notes:"Historical manual entry",supervisor_id:supervisor.id,metrics:{trees_irrigated:2500,date_palm_pruning:5,tree_pruning:10,compost_fertilization:0,cleaned_area_ha:0.25}};
+      const createInput={idempotency_key:crypto.randomUUID(),entry:kpiEntry};
+      await rejects(()=>createKpiReport(db,viewer,createInput),"Viewer cannot create KPI reports");
+      await rejects(()=>createKpiReport(db,supervisor,{...createInput,entry:{...kpiEntry,report_date:"2026-10-01"}},new Date("2026-10-24T12:00:00Z")),"Supervisor cannot backdate daily KPI reports");
+      await rejects(()=>createKpiReport(db,{...supervisor,role:"admin"},{...createInput,entry:{...kpiEntry,supervisor_id:other.id}}),"database guard rejects forged Admin historical KPI creation");
+      const [ka,kb]=await Promise.all([createKpiReport(db,admin,createInput),createKpiReport(db,admin,createInput)]);
+      assert(ka.id===kb.id,"KPI double submission is idempotent");
+      const secondKpi=await createKpiReport(db,admin,{idempotency_key:crypto.randomUUID(),entry:{...kpiEntry,supervisor_id:other.id,metrics:{trees_irrigated:3000,tree_pruning:0,compost_fertilization:80}}});
+      const kpiViewer=await readKpiReports(db,viewer);
+      assert(kpiViewer.reports.length===2&&!JSON.stringify(kpiViewer).includes("supervisor_name")&&!JSON.stringify(kpiViewer).includes("supervisor_id"),"KPI Viewer sees reports without user identity details");
+      const kpiMetrics=calculateDashboard(kpiViewer.reports,{mode:"project"},"2026-10-24");
+      assert(kpiMetrics.cumulative.totals.irrigation===5500&&kpiMetrics.cumulative.totals.pruning===10&&kpiMetrics.cumulative.totals.compost===80,"separate Supervisor reports combine and compost stays independent from pruning");
+      assert((await readKpiReports(db,supervisor)).reports.length===1,"KPI Supervisor sees only own reports");
+      await rejects(()=>updateKpiReport(db,supervisor,{id:secondKpi.id,entry:kpiEntry}),"Supervisor cannot edit another user's KPI report");
+      await rejects(()=>updateKpiReport(db,supervisor,{id:ka.id,entry:{...kpiEntry,report_date:"2026-10-02"}}),"Supervisor cannot change KPI activity date");
+      await updateKpiReport(db,supervisor,{id:ka.id,entry:{...kpiEntry,metrics:{tree_pruning:20,compost_fertilization:0}}});
+      assert(calculateDashboard((await readKpiReports(db,viewer)).reports,{mode:"project"},"2026-10-24").cumulative.totals.pruning===20,"KPI totals reflect edits without duplicated records");
+      await rejects(()=>deleteKpiReport(db,supervisor,ka.id),"Supervisor cannot delete KPI reports");
+      await rejects(()=>deleteKpiReport(db,viewer,ka.id),"Viewer cannot delete KPI reports");
+      await rejects(()=>db.stmt("DELETE FROM kpi_daily_reports WHERE id=?",ka.id).run(),"KPI audit history cannot be hard-deleted");
+      assert(!kpiEntrySchema.safeParse({...kpiEntry,metrics:{tree_pruning:1.5}}).success&&!kpiEntrySchema.safeParse({...kpiEntry,metrics:{cleaned_area_ha:-1}}).success,"KPI validation rejects fractional trees and negative activity");
+      assert(!kpiEntrySchema.safeParse({...kpiEntry,metrics:{date_palm_pruning:20,tree_pruning:10}}).success,"Date Palm pruning breakdown cannot exceed all-tree total");
+      await deleteKpiReport(db,admin,ka.id);await deleteKpiReport(db,admin,secondKpi.id);
+      assert((await readKpiReports(db,viewer)).reports.length===0&&!!(await db.one("SELECT deleted_at FROM kpi_daily_reports WHERE id=?",ka.id))?.deleted_at,"Admin KPI deletion removes progress while retaining audit history");
+      assert(calculateDashboard((await readKpiReports(db,viewer)).reports,{mode:"project"},"2026-10-24").overall===0,"deleted KPI work recalculates to zero");
       const oldToken = await db.login("082", "viewer-reset-fixture");
       await db.changeAccount(admin, {
         action: "user.pin",

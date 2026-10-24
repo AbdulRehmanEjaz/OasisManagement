@@ -91,9 +91,9 @@ Admin → Reports Management has separate Waste Tracking and Facilities Tracking
 
 ### Dashboard login URLs
 - Site Survey: `/survey/login` (existing PIN authentication).
-- Active Farms KPIs: `/kpi/login` (Coming soon).
+- Active Farms KPIs: `/kpi/login` (shared existing PIN authentication).
 - Manpower & Equipment: `/hr/login` (Coming soon).
-The legacy `/login` permanently redirects to `/survey/login`. Future dashboard pages do not authenticate users or grant access to Site Survey.
+The legacy `/login` permanently redirects to `/survey/login`. KPI uses the existing users, PINs, sessions and revocation rules. HR remains a placeholder.
 
 ### Admin Excel bulk import
 Reports Management provides separate Waste and Facilities `.xlsx` templates, validation previews, and imports. The Reports worksheet has Date, category/site details, decimal Latitude/Longitude, Photo URL 1, and optional Photo URL 2; see the Instructions worksheet. Use direct public HTTPS image links (JPEG/PNG/WebP), not share/gallery pages. Up to 100 rows and 2 MB per file. Invalid spreadsheets are rejected before importing. Rows are committed individually with progress; an interrupted run can resume, and exact same-file row retries are idempotent. Different files are treated as new imports.
@@ -105,3 +105,13 @@ Migration 0007 adds Excel import provenance and a Waste numbering floor of 102. 
 ### Admin report location corrections
 Open a report and choose **Change location** under Recorded location. Admin can enter decimal Latitude/Longitude, check the satellite preview, and save. The server validates ranges, checks the active Admin session, and audits the old/new coordinates. D1 independently rejects location overrides without an authenticated Admin transaction. Viewer and Supervisor cannot change report coordinates.
 Migration 0008 stores corrections separately from immutable original GPS/Excel coordinates. Maps, report details, Google Maps links, and Excel exports use the corrected location. Corrected points are labelled Admin updated and do not claim fresh device-GPS verification or the original GPS accuracy. Report codes and photo associations are unchanged.
+
+
+### KPI dashboard
+`/kpi` provides Admin, Viewer and Supervisor panels with the same accounts as Survey. Admin can enter historical daily reports, edit/delete entries and manage shared users/PINs; Viewer is read-only with supervisor identities omitted; Supervisor submits today's Riyadh activity and edits only their own reports without changing dates or ownership. PIN changes and session revocation apply across dashboards.
+
+Migration 0009 creates separate KPI tables, indexes and authorization triggers without changing Survey records or importing example data. The dashboard starts empty. All writes require authenticated same-origin requests and database authorization guards; creates are idempotent and edits/deletions are audited.
+
+Project dates, targets and 13 custom reporting weeks are centralized in src/lib/kpi/config.ts. Reporting supports daily, weekly, calendar monthly, full-project and custom ranges, with separate period totals and cumulative completion through the cutoff. Pruning and Composting are independent all-tree activities with separate 16,000-tree targets. Date Palm Pruning is a subset of the all-tree pruning count and is never added twice. Tree Base Management excludes date palms, which have their own basin field. Crop Management averages pruning, composting and tree-base percentages. Operational trips, basins and kilograms are kept separate from tree/hectare KPIs.
+
+Validation: unit calculation tests, isolated D1 role/ownership tests, application HTTP/authentication tests, production Worker build and Wrangler dry-run. No sample reports are written to production during verification.
