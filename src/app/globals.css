@@ -2589,10 +2589,8 @@ body:has(.operations-hub) { background: #f5f2e9; }
 @media (min-width: 761px) {
  .operations-hub { min-height: 100dvh; padding-top: 12px; padding-bottom: 12px; display: flex; flex-direction: column; }
  .hub-header { padding-bottom: 8px; flex-shrink: 0; }
- .hub-intro { padding: 14px 0 18px; display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; }
+ .hub-intro { padding: 8px 0 12px; display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; }
  .hub-intro h1 { font-size: clamp(32px, 3.2vw, 46px); line-height: 1.12; }
- .hub-intro h1 br { display: none; }
- .hub-intro h1 em::before { content: " "; }
  .hub-intro > p { position: static; margin: 0; flex-shrink: 0; }
  .hub-cards { flex: 1; }
  .hub-footer { padding-top: 12px; }
@@ -2606,6 +2604,6 @@ body:has(.operations-hub) { background: #f5f2e9; }
  .operations-hub { padding-top: 8px; padding-bottom: 8px; }
  .hub-brand > img { width: 240px; }
  .hub-header { padding-bottom: 6px; }
- .hub-intro { padding: 8px 0 12px; }
+ .hub-intro { padding: 4px 0 8px; }
  .hub-footer { padding-top: 10px; }
 }
