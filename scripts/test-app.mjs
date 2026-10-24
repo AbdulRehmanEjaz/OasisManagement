@@ -60,17 +60,21 @@ const request = (path, body, cookie = "", extra = {}) =>
 try {
   const hub = await request("/");
   const hubHtml = await hub.text();
-  check(hub.status === 200 && hubHtml.includes("Operations Hub") && hubHtml.includes("/oasis") && hubHtml.includes("Coming soon"), "public landing page links to protected Oasis dashboard");
-  check((await request("/oasis")).status === 307, "Oasis dashboard still requires PIN authentication");
-  let r = await request("/oasis/login");
+  check(hub.status === 200 && hubHtml.includes("Operations Hub") && hubHtml.includes("/survey") && hubHtml.includes("Coming soon"), "public landing page links to protected Oasis dashboard");
+  check((await request("/survey")).status === 307, "Oasis dashboard still requires PIN authentication");
+  let r = await request("/survey/login");
   check(
     r.status === 200 && (await r.text()).includes("Enter your PIN"),
     "built Worker serves original login UI",
   );
   r = await request("/api/access");
   check(r.status === 401, "users route requires authentication");
+  const oldDashboard=await request("/oasis?view=waste&record=example");
+  check(oldDashboard.status===308&&oldDashboard.headers.get("location")?.endsWith("/survey?view=waste&record=example"),"old Oasis links preserve report query parameters");
+  const oldScopedLogin=await request("/oasis/login");
+  check(oldScopedLogin.status===308&&oldScopedLogin.headers.get("location")?.endsWith("/survey/login"),"old Oasis login redirects to Survey login");
   const legacyLogin=await request("/login");
-  check(legacyLogin.status===308&&legacyLogin.headers.get("location")?.endsWith("/oasis/login"),"old login redirects to Site Survey login");
+  check(legacyLogin.status===308&&legacyLogin.headers.get("location")?.endsWith("/survey/login"),"old login redirects to Site Survey login");
   for(const path of ["/kpi/login","/hr/login"]){const future=await request(path);check(future.status===200&&(await future.text()).includes("Coming soon"),path+" reserved for future dashboard");}
   check((await request("/api/report-excel?kind=waste")).status===401,"Excel requires authentication");
   check((await request("/api/report-photos?kind=waste")).status === 401, "photo exports require authentication");
@@ -112,7 +116,7 @@ try {
     (r.headers.get("cache-control") || "").includes("no-store"),
     "authentication responses are never cached",
   );
-  r = await request("/oasis", null, adminCookie);
+  r = await request("/survey", null, adminCookie);
   check(
     r.status === 200 && (await r.text()).includes("oasis"),
     "D1 session opens the dashboard",
@@ -144,9 +148,9 @@ try {
   const viewerCookie = (r.headers.get("set-cookie") || "").split(";")[0];
   check(r.status === 200, "PIN-only viewer login");
   check((await request("/api/report-photos?kind=waste&download=1",null,viewerCookie)).status === 403, "viewer cannot download admin photo archive");
-  const viewerOverview = await (await request("/oasis", null, viewerCookie)).text();
+  const viewerOverview = await (await request("/survey", null, viewerCookie)).text();
   check(viewerOverview.includes("Report maps") && viewerOverview.includes("Waste Reports") && viewerOverview.includes("Facilities"), "Viewer Overview has both report-map tabs");
-  const adminOverview = await (await request("/oasis", null, adminCookie)).text();
+  const adminOverview = await (await request("/survey", null, adminCookie)).text();
   check(adminOverview.includes("Report maps") && adminOverview.includes("Waste Reports"), "Admin Overview has report maps");
   r = await request("/api/access", null, viewerCookie);
   check(r.status === 403, "viewer cannot read users through HTTP");

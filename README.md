@@ -90,7 +90,7 @@ Admin → Reports Management has separate Waste Tracking and Facilities Tracking
 - Both export routes enforce Admin authorization and rate limits. JPEG/PNG images are supported by Excel (the app's upload processing stores JPEG). Downloads are saved only after the complete archive is received and its end record is checked. Image-host failures show an error without saving an incomplete file; retry the download. ZIP32 limits apply: under 4 GB and 65,535 archive entries.
 
 ### Dashboard login URLs
-- Site Survey: `/oasis/login` (existing PIN authentication).
+- Site Survey: `/survey/login` (existing PIN authentication).
 - Active Farms KPIs: `/kpi/login` (Coming soon).
 - Manpower & Equipment: `/hr/login` (Coming soon).
-The legacy `/login` permanently redirects to `/oasis/login`. Future dashboard pages do not authenticate users or grant access to Site Survey.
+The legacy `/login` permanently redirects to `/survey/login`. Future dashboard pages do not authenticate users or grant access to Site Survey.

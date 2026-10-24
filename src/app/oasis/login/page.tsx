@@ -1,4 +1,2 @@
-import Login from "@/components/login";
-export default function Page() {
-  return <Login />;
-}
+import { permanentRedirect } from "next/navigation";
+export default function Page(){permanentRedirect("/survey/login");}

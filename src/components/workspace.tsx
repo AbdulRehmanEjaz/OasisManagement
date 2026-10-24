@@ -221,7 +221,7 @@ export default function Workspace({
     setMenu(false);
     if (v === "waste") setModule("waste");
     if (v === "inspections") setModule("inspection");
-    history.replaceState(null, "", v === "dashboard" ? "/oasis" : `/oasis?view=${v}`);
+    history.replaceState(null, "", v === "dashboard" ? "/survey" : `/survey?view=${v}`);
   }
   async function logout() {
     try {
@@ -234,7 +234,7 @@ export default function Workspace({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "logout" }),
     });
-    location.href = "/oasis/login";
+    location.href = "/survey/login";
   }
   const showPhoto = (urls: string[], index: number) =>
     setPhotos({ urls, index });

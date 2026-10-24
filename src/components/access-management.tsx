@@ -44,7 +44,7 @@ export default function AccessManagement({
         ...(change ? { id: change.id } : {}),
       });
       if (result.reauthenticate) {
-        location.href = "/oasis/login";
+        location.href = "/survey/login";
         return;
       }
       refreshed();

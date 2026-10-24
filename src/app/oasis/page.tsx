@@ -1,21 +1,6 @@
-import { requirePanel } from "@/lib/panels";
-import { redirect } from "next/navigation";
-import Workspace from "@/components/workspace";
-export const dynamic = "force-dynamic";
-export default async function Home() {
-  let profile;
-  try {
-    profile = await requirePanel();
-  } catch {
-    redirect("/oasis/login");
-  }
-  const { tokenHash: _, ...safeProfile } = profile;
-  return (
-    <Workspace
-      profile={safeProfile}
-      configured={true}
-      timezone={process.env.APP_TIMEZONE || "Asia/Riyadh"}
-      gpsThreshold={Number(process.env.GPS_ACCURACY_METERS || 20)}
-    />
-  );
+import { permanentRedirect } from "next/navigation";
+export default async function Page({searchParams}:{searchParams:Promise<Record<string,string|string[]|undefined>>}) {
+ const query=await searchParams,params=new URLSearchParams();
+ for(const [key,value] of Object.entries(query)){if(Array.isArray(value))value.forEach(v=>params.append(key,v));else if(value!==undefined)params.set(key,value);}
+ permanentRedirect("/survey"+(params.size?"?"+params.toString():""));
 }
