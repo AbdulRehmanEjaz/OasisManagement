@@ -124,9 +124,12 @@ export async function readRecords(
   const count =
     (await db.one(`SELECT count(*) n FROM ${table}${clause}`, ...values))?.n ||
     0;
-  const order = type === "options" ? "label" : "created_at",
-    direction =
-      type === "options" || q.get("sort") === "oldest" ? "ASC" : "DESC";
+  const numbered = ["waste", "inspections", "facilities"].includes(type);
+  const numberAscending = numbered && (!q.get("sort") || q.get("sort") === "number-asc");
+  const order = numberAscending
+    ? "CAST(substr(r.number,instr(r.number,'-')+1) AS INTEGER)"
+    : type === "options" ? "label" : "created_at";
+  const direction = numberAscending || type === "options" || q.get("sort") === "oldest" ? "ASC" : "DESC";
   const isRecord = ["waste", "inspections", "facilities"].includes(type);
   let projection = "r.*";
   if (isRecord)

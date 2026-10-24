@@ -369,6 +369,9 @@ export default {
       async function newWaste(){return submitReport(db,supervisor,{...input,location_id:await location(supervisor),photo_ids:(await photos(supervisor)).slice(0,1),idempotency_key:crypto.randomUUID()});}
       const first=await newWaste(),second=await newWaste();
       assert(first.number==="COSA-102"&&second.number==="COSA-103","deleting final report restarts at configured COSA-102");
+      await db.stmt("UPDATE reports SET created_at=? WHERE id=?","2025-01-01T00:00:00Z",first.id).run();
+      const ascendingWaste=await readRecords(db,admin,"waste",new URLSearchParams());
+      assert(ascendingWaste.data.map((r:{number:string})=>r.number).join(",")==="COSA-102,COSA-103","Waste list defaults to ascending report number independent of dates");
       await deleteRecord(db,admin,{type:"waste",id:first.id});
       assert((await db.one("SELECT number FROM reports WHERE id=?",second.id))?.number==="COSA-102","deleting middle report closes numbering gap");
       assert(!!await db.one("SELECT id FROM record_photos WHERE report_id=?",second.id),"renumbering preserves photo association");
@@ -387,6 +390,9 @@ export default {
       await rejects(()=>importReport(db,{...viewer,role:"admin"},"waste",{...importInput,key:"b".repeat(64)+"-2"},mockHost),"forged admin session cannot import");
       await rejects(()=>db.stmt("UPDATE reports SET source='field' WHERE id=?",imported.id).run(),"Excel provenance is immutable");
       const facilityImport=await importReport(db,admin,"inspection",{...importInput,site:"Imported site",structure_type:"Animal Shelters",key:"c".repeat(64)+"-2",photos:importInput.photos.slice(0,1)},mockHost);
+      await db.stmt("UPDATE reports SET created_at=? WHERE id=?","2030-01-01T00:00:00Z",facilityImport.id).run();
+      const ascendingFacilities=await readRecords(db,admin,"inspections",new URLSearchParams({sort:"number-asc"}));
+      assert(ascendingFacilities.data.map((r:{number:string})=>r.number).join(",")==="OFT-001,OFT-002","Facilities list sorts ascending by report number independent of dates");
       assert(facilityImport.number==="OFT-002","Facilities import follows its separate existing sequence");
       assert((await db.one("SELECT count(*) n FROM delivery_attempts WHERE record_id=?",facilityImport.id))?.n===0,"bulk imports do not queue unwanted emails");
       await deleteRecord(db,admin,{type:"waste",id:imported.id});

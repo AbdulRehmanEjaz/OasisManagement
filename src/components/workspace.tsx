@@ -95,7 +95,7 @@ export default function Workspace({
     [category, setCategory] = useState(""),
     [supervisor, setSupervisor] = useState(""),
     [date, setDate] = useState(""),
-    [sort, setSort] = useState("newest"),
+    [sort, setSort] = useState("number-asc"),
     [page, setPage] = useState(0),
     [filters, setFilters] = useState(false),
     [facilities, setFacilities] = useState<Row[]>([]),
@@ -657,6 +657,7 @@ export default function Workspace({
                         setPage(0);
                       }}
                     >
+                      <option value="number-asc">Report number: ascending</option>
                       <option value="newest">Newest first</option>
                       <option value="oldest">Oldest first</option>
                     </select>
@@ -667,6 +668,7 @@ export default function Workspace({
                       setCategory("");
                       setDate("");
                       setSupervisor("");
+                      setSort("number-asc");
                       setPage(0);
                     }}
                   >
