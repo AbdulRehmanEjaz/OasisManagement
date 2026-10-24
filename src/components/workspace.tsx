@@ -234,7 +234,7 @@ export default function Workspace({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "logout" }),
     });
-    location.href = "/login";
+    location.href = "/oasis/login";
   }
   const showPhoto = (urls: string[], index: number) =>
     setPhotos({ urls, index });

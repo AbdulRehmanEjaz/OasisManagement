@@ -7,7 +7,7 @@ export default async function Home() {
   try {
     profile = await requirePanel();
   } catch {
-    redirect("/login");
+    redirect("/oasis/login");
   }
   const { tokenHash: _, ...safeProfile } = profile;
   return (

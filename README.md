@@ -88,3 +88,9 @@ Admin → Reports Management has separate Waste Tracking and Facilities Tracking
 - ZIP uses unchanged stored ImgBB image bytes, named `COSA-001/COSA-001-01.jpg` (or `OFT-001/...`); suffixes distinguish multiple photos.
 - Excel exports are actual .xlsx files with all attached photos embedded, Riyadh submission dates, numeric coordinates/weights, clickable Google Maps links, frozen headers, and filters. Facilities Type of Structure is intentionally empty only in the export; the stored value remains unchanged.
 - Both export routes enforce Admin authorization and rate limits. JPEG/PNG images are supported by Excel (the app's upload processing stores JPEG). Downloads are saved only after the complete archive is received and its end record is checked. Image-host failures show an error without saving an incomplete file; retry the download. ZIP32 limits apply: under 4 GB and 65,535 archive entries.
+
+### Dashboard login URLs
+- Site Survey: `/oasis/login` (existing PIN authentication).
+- Active Farms KPIs: `/kpi/login` (Coming soon).
+- Manpower & Equipment: `/hr/login` (Coming soon).
+The legacy `/login` permanently redirects to `/oasis/login`. Future dashboard pages do not authenticate users or grant access to Site Survey.

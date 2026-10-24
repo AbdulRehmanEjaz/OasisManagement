@@ -33,7 +33,7 @@ export default function Setup() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error);
       form.reset();
-      location.href = "/login";
+      location.href = "/oasis/login";
     } catch (e) {
       setError((e as Error).message);
       setBusy(false);

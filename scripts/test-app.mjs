@@ -62,13 +62,16 @@ try {
   const hubHtml = await hub.text();
   check(hub.status === 200 && hubHtml.includes("Operations Hub") && hubHtml.includes("/oasis") && hubHtml.includes("Coming soon"), "public landing page links to protected Oasis dashboard");
   check((await request("/oasis")).status === 307, "Oasis dashboard still requires PIN authentication");
-  let r = await request("/login");
+  let r = await request("/oasis/login");
   check(
     r.status === 200 && (await r.text()).includes("Enter your PIN"),
     "built Worker serves original login UI",
   );
   r = await request("/api/access");
   check(r.status === 401, "users route requires authentication");
+  const legacyLogin=await request("/login");
+  check(legacyLogin.status===308&&legacyLogin.headers.get("location")?.endsWith("/oasis/login"),"old login redirects to Site Survey login");
+  for(const path of ["/kpi/login","/hr/login"]){const future=await request(path);check(future.status===200&&(await future.text()).includes("Coming soon"),path+" reserved for future dashboard");}
   check((await request("/api/report-excel?kind=waste")).status===401,"Excel requires authentication");
   check((await request("/api/report-photos?kind=waste")).status === 401, "photo exports require authentication");
   r = await request(
