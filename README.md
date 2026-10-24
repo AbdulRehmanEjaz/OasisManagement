@@ -108,10 +108,17 @@ Migration 0008 stores corrections separately from immutable original GPS/Excel c
 
 
 ### KPI dashboard
-`/kpi` provides Admin, Viewer and Supervisor panels with the same accounts as Survey. Admin can enter historical daily reports, edit/delete entries and manage shared users/PINs; Viewer is read-only with supervisor identities omitted; Supervisor submits today's Riyadh activity and edits only their own reports without changing dates or ownership. PIN changes and session revocation apply across dashboards.
+`/kpi` provides Admin, Viewer and Supervisor panels with the same accounts as Survey. Admin can enter historical daily reports, edit/delete entries and manage shared users/PINs; Viewer is read-only with supervisor identities omitted; Supervisor submits today's Riyadh activity once and views their own reports; Admin handles corrections. PIN changes and session revocation apply across dashboards.
 
 Migration 0009 creates separate KPI tables, indexes and authorization triggers without changing Survey records or importing example data. The dashboard starts empty. All writes require authenticated same-origin requests and database authorization guards; creates are idempotent and edits/deletions are audited.
 
 Project dates, targets and 13 custom reporting weeks are centralized in src/lib/kpi/config.ts. Reporting supports daily, weekly, calendar monthly, full-project and custom ranges, with separate period totals and cumulative completion through the cutoff. Pruning and Composting are independent all-tree activities with separate 16,000-tree targets. Date Palm Pruning is a subset of the all-tree pruning count and is never added twice. Tree Base Management excludes date palms, which have their own basin field. Crop Management averages pruning, composting and tree-base percentages. Operational trips, basins and kilograms are kept separate from tree/hectare KPIs.
 
 Validation: unit calculation tests, isolated D1 role/ownership tests, application HTTP/authentication tests, production Worker build and Wrangler dry-run. No sample reports are written to production during verification.
+
+### Mobile Supervisor KPI submission
+Supervisors open directly into an inline daily form after KPI login. English/Arabic switching covers the Supervisor navigation, form labels, hints, units, confirmation and own-report details; Arabic uses right-to-left layout and the language preference is stored locally. Mobile inputs use numeric keyboards and a sticky submit action.
+
+Migration 0010 enforces one submission per Supervisor per Riyadh calendar day, including concurrent requests and reports later soft-deleted. Same-request retries remain idempotent. Submitted reports are read-only to Supervisors; corrections go through Admin in Daily Reports. Admin historical entry remains available. Existing reports are retained.
+
+Migration 0011 adds audited Admin-only form wording settings. The Admin Edit tab changes English/Arabic activity labels and instructions without changing metric keys, units or calculations. Changes reach forms on the next refresh; edit an already opened form only after saving or cancelling its draft.

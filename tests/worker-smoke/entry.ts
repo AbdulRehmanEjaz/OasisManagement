@@ -1,4 +1,4 @@
-import {createKpiReport,readKpiReports,updateKpiReport,deleteKpiReport,kpiEntrySchema} from "../../src/lib/kpi/store";
+import {saveKpiFormSettings,createKpiReport,readKpiReports,updateKpiReport,deleteKpiReport,kpiEntrySchema} from "../../src/lib/kpi/store";
 import {calculateDashboard,saudiDate} from "../../src/lib/kpi/calculations";
 import {PROJECT} from "../../src/lib/kpi/config";
 import {importReport} from "../../src/lib/report-import";
@@ -430,7 +430,8 @@ export default {
       assert((await readKpiReports(db,supervisor)).reports.length===1,"KPI Supervisor sees only own reports");
       await rejects(()=>updateKpiReport(db,supervisor,{id:secondKpi.id,entry:kpiEntry}),"Supervisor cannot edit another user's KPI report");
       await rejects(()=>updateKpiReport(db,supervisor,{id:ka.id,entry:{...kpiEntry,report_date:"2026-10-02"}}),"Supervisor cannot change KPI activity date");
-      await updateKpiReport(db,supervisor,{id:ka.id,entry:{...kpiEntry,metrics:{tree_pruning:20,compost_fertilization:0}}});
+      await rejects(()=>updateKpiReport(db,supervisor,{id:ka.id,entry:kpiEntry}),"submitted Supervisor reports are locked for Manager corrections");
+       await updateKpiReport(db,admin,{id:ka.id,entry:{...kpiEntry,metrics:{tree_pruning:20,compost_fertilization:0}}});
       assert(calculateDashboard((await readKpiReports(db,viewer)).reports,{mode:"project"},"2026-10-24").cumulative.totals.pruning===20,"KPI totals reflect edits without duplicated records");
       await rejects(()=>deleteKpiReport(db,supervisor,ka.id),"Supervisor cannot delete KPI reports");
       await rejects(()=>deleteKpiReport(db,viewer,ka.id),"Viewer cannot delete KPI reports");
@@ -440,6 +441,23 @@ export default {
       await deleteKpiReport(db,admin,ka.id);await deleteKpiReport(db,admin,secondKpi.id);
       assert((await readKpiReports(db,viewer)).reports.length===0&&!!(await db.one("SELECT deleted_at FROM kpi_daily_reports WHERE id=?",ka.id))?.deleted_at,"Admin KPI deletion removes progress while retaining audit history");
       assert(calculateDashboard((await readKpiReports(db,viewer)).reports,{mode:"project"},"2026-10-24").overall===0,"deleted KPI work recalculates to zero");
+
+      const todayEntry={...kpiEntry,report_date:saudiDate(),supervisor_id:supervisor.id};
+      const dailyInput={entry:todayEntry,idempotency_key:crypto.randomUUID()};
+      const daily=await createKpiReport(db,supervisor,dailyInput);
+      assert((await createKpiReport(db,supervisor,dailyInput)).id===daily.id,"daily submission retry remains idempotent");
+      await rejects(()=>createKpiReport(db,supervisor,{...dailyInput,idempotency_key:crypto.randomUUID()}),"second daily Supervisor report with a new key is rejected");
+      await rejects(()=>db.write(supervisor,'submit',[db.stmt('INSERT INTO kpi_daily_reports(id,project_id,supervisor_id,report_date,location,metrics,notes,created_by,updated_by,idempotency_key) VALUES(?,?,?,?,?,?,?,?,?,?)',crypto.randomUUID(),PROJECT.id,supervisor.id,saudiDate(),'Duplicate','{}','',supervisor.id,supervisor.id,crypto.randomUUID())]),"D1 blocks duplicate daily report even when bypassing API");
+      assert((await readKpiReports(db,supervisor)).submittedToday,"Supervisor receives current daily submission status");
+      const dailyRace=await Promise.allSettled([1,2].map(()=>createKpiReport(db,other,{idempotency_key:crypto.randomUUID(),entry:{...todayEntry,supervisor_id:other.id}})));
+      assert(dailyRace.filter(r=>r.status==='fulfilled').length===1,"concurrent distinct-key daily submissions create only one report");
+      assert((await readKpiReports(db,other)).submittedToday,"different supervisors may each submit on same day");
+      await deleteKpiReport(db,admin,daily.id);
+      await rejects(()=>createKpiReport(db,supervisor,{...dailyInput,idempotency_key:crypto.randomUUID()}),"soft deletion cannot bypass once-per-day rule");
+      await rejects(()=>saveKpiFormSettings(db,viewer,{}),"Viewer cannot edit form settings");
+      await rejects(()=>saveKpiFormSettings(db,supervisor,{}),"Supervisor cannot edit form settings");
+      await saveKpiFormSettings(db,admin,{trees_irrigated:{en:'Irrigated trees',ar:'الأشجار المروية',hintEn:'All trees',hintAr:'جميع الأشجار'}});
+      assert((await readKpiReports(db,supervisor)).formSettings.trees_irrigated.ar==='الأشجار المروية',"Admin form translations persist and reach supervisors");
       const oldToken = await db.login("082", "viewer-reset-fixture");
       await db.changeAccount(admin, {
         action: "user.pin",
