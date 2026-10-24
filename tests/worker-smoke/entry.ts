@@ -1,3 +1,4 @@
+import {importReport} from "../../src/lib/report-import";
 import {photoZip} from "../../src/lib/photo-zip";
 import {unzipSync} from "fflate";
 // Isolated local workerd + D1 integration tests. Never deployed to production.
@@ -35,12 +36,12 @@ export default {
       assert(denied, label);
     };
     try {
-      async function* zipPhotos() {yield {number:"COSA-001",url:"https://i.ibb.co/fixture/photo.jpg"};}
+      async function* zipPhotos() {yield {number:"COSA-102",url:"https://i.ibb.co/fixture/photo.jpg"};}
       const originalPhoto = new Uint8Array([255,216,255,0,9,1]);
       const zipParts: Uint8Array[] = [];
       for await (const chunk of photoZip(zipPhotos(),new AbortController().signal,(async()=>new Response(originalPhoto,{headers:{"Content-Type":"image/jpeg"}})) as typeof fetch)) zipParts.push(chunk);
       const archive = new Uint8Array(zipParts.reduce((n,p)=>n+p.length,0));let zipOffset=0;for(const part of zipParts){archive.set(part,zipOffset);zipOffset+=part.length;}
-      const zipPhoto = unzipSync(archive)["COSA-001/COSA-001-01.jpg"];
+      const zipPhoto = unzipSync(archive)["COSA-102/COSA-102-01.jpg"];
       assert(zipPhoto?.length === originalPhoto.length && zipPhoto.every((v,i)=>v===originalPhoto[i]), "Worker streams ZIP with unchanged report-numbered photos");
       const db = new D1Store(
         (env as unknown as { DB: D1Database }).DB,
@@ -203,7 +204,7 @@ export default {
         submitReport(db, supervisor, input),
       ]);
       assert(report.id===concurrent.id,"concurrent retries create one report");
-      assert(report.number === "COSA-001", "atomic sequential report number");
+      assert(report.number === "COSA-102", "atomic sequential report number");
       assert(
         (await submitReport(db, supervisor, input)).id === report.id,
         "idempotent report retry",
@@ -367,12 +368,29 @@ export default {
       assert(!await db.one("SELECT id FROM reports WHERE id=?",report.id)&&!await db.one("SELECT id FROM record_photos WHERE report_id=?",report.id),"administrator deletion cascades report photo associations");
       async function newWaste(){return submitReport(db,supervisor,{...input,location_id:await location(supervisor),photo_ids:(await photos(supervisor)).slice(0,1),idempotency_key:crypto.randomUUID()});}
       const first=await newWaste(),second=await newWaste();
-      assert(first.number==="COSA-001"&&second.number==="COSA-002","deleting final report restarts at 001");
+      assert(first.number==="COSA-102"&&second.number==="COSA-103","deleting final report restarts at configured COSA-102");
       await deleteRecord(db,admin,{type:"waste",id:first.id});
-      assert((await db.one("SELECT number FROM reports WHERE id=?",second.id))?.number==="COSA-001","deleting middle report closes numbering gap");
+      assert((await db.one("SELECT number FROM reports WHERE id=?",second.id))?.number==="COSA-102","deleting middle report closes numbering gap");
       assert(!!await db.one("SELECT id FROM record_photos WHERE report_id=?",second.id),"renumbering preserves photo association");
-      const third=await newWaste();assert(third.number==="COSA-002","new report follows compacted sequence");
+      const third=await newWaste();assert(third.number==="COSA-103","new report follows compacted sequence");
       await deleteRecord(db,admin,{type:"waste",id:third.id});await deleteRecord(db,admin,{type:"waste",id:second.id});
+      const importInput={date:"2026-10-24T00:00:00Z",category:"Mixed domestic wastes",quantity:150,latitude:26.6,longitude:37.9,photos:["https://i.ibb.co/fixture/import1.jpg","https://i.ibb.co/fixture/import2.jpg"],key:"a".repeat(64)+"-2"};
+      const mockHost=async(url:string)=>url;
+      await rejects(()=>importReport(db,viewer,"waste",importInput,mockHost),"viewer cannot bulk import");
+      await rejects(()=>importReport(db,supervisor,"waste",importInput,mockHost),"supervisor cannot bulk import");
+      const imported=await importReport(db,admin,"waste",importInput,mockHost);
+      assert(imported.number==="COSA-102","first Excel waste report starts at COSA-102");
+      const importRecord=await db.one("SELECT * FROM reports WHERE id=?",imported.id);
+      assert(importRecord?.source==="excel"&&importRecord?.location_confirmed===0&&importRecord?.location_id===null,"Excel coordinates never claim hardware GPS verification");
+      assert((await db.one("SELECT count(*) n FROM record_photos WHERE report_id=?",imported.id))?.n===2,"Excel import attaches both photos");
+      const repeat=await importReport(db,admin,"waste",importInput,mockHost);assert(repeat.id===imported.id&&repeat.skipped,"same-file row retry does not duplicate reports or numbers");
+      await rejects(()=>importReport(db,{...viewer,role:"admin"},"waste",{...importInput,key:"b".repeat(64)+"-2"},mockHost),"forged admin session cannot import");
+      await rejects(()=>db.stmt("UPDATE reports SET source='field' WHERE id=?",imported.id).run(),"Excel provenance is immutable");
+      const facilityImport=await importReport(db,admin,"inspection",{...importInput,site:"Imported site",structure_type:"Animal Shelters",key:"c".repeat(64)+"-2",photos:importInput.photos.slice(0,1)},mockHost);
+      assert(facilityImport.number==="OFT-002","Facilities import follows its separate existing sequence");
+      assert((await db.one("SELECT count(*) n FROM delivery_attempts WHERE record_id=?",facilityImport.id))?.n===0,"bulk imports do not queue unwanted emails");
+      await deleteRecord(db,admin,{type:"waste",id:imported.id});
+      await deleteRecord(db,admin,{type:"inspections",id:facilityImport.id});
       const oldToken = await db.login("082", "viewer-reset-fixture");
       await db.changeAccount(admin, {
         action: "user.pin",

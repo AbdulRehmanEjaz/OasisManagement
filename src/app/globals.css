@@ -2607,3 +2607,9 @@ body:has(.operations-hub) { background: #f5f2e9; }
  .hub-intro { padding: 4px 0 8px; }
  .hub-footer { padding-top: 10px; }
 }
+.report-import { border-bottom: 1px solid var(--line); margin-bottom: 24px; padding-bottom: 24px; }
+.report-import h3 { font-size: 20px; margin: 0 0 8px; }
+.import-actions { display: flex; gap: 10px; flex-wrap: wrap; margin: 16px 0; }
+.import-preview { padding: 16px; border: 1px solid var(--line); border-radius: 14px; background: #f3f6ec; margin-top: 14px; }
+.import-preview p, .import-errors { white-space: pre-wrap; overflow-wrap: anywhere; }
+@media (max-width:640px) { .import-actions .btn { width: 100%; justify-content: center; } }

@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import {unzipSync,zipSync,strFromU8,strToU8} from "fflate";
 import { mkdir, mkdtemp } from "node:fs/promises";
 import { resolve } from "node:path";
 import { spawnSync } from "node:child_process";
@@ -76,6 +77,7 @@ try {
   const legacyLogin=await request("/login");
   check(legacyLogin.status===308&&legacyLogin.headers.get("location")?.endsWith("/survey/login"),"old login redirects to Site Survey login");
   for(const path of ["/kpi/login","/hr/login"]){const future=await request(path);check(future.status===200&&(await future.text()).includes("Coming soon"),path+" reserved for future dashboard");}
+  check((await request("/api/report-import?kind=waste")).status===401,"bulk import templates require authentication");
   check((await request("/api/report-excel?kind=waste")).status===401,"Excel requires authentication");
   check((await request("/api/report-photos?kind=waste")).status === 401, "photo exports require authentication");
   r = await request(
@@ -167,6 +169,26 @@ try {
   r = await request("/api/auth", { action: "login", pin: "765" });
   const supervisorCookie = (r.headers.get("set-cookie") || "").split(";")[0];
   check(r.status === 200, "PIN-only supervisor login");
+  check((await request("/api/report-import?kind=waste",null,viewerCookie)).status===403,"viewer cannot access import templates");
+  check((await request("/api/report-import?kind=inspection",{},supervisorCookie)).status===403,"supervisor cannot bulk import");
+  check((await request("/api/report-import?kind=waste",{},adminCookie,{origin:"https://evil.example"})).status===403,"bulk imports reject cross-origin requests");
+  const template=await request("/api/report-import?kind=waste",null,adminCookie);
+  check(template.status===200&&template.headers.get("content-type").includes("spreadsheetml"),"admin downloads real XLSX import template");
+
+  if(process.env.TEST_REMOTE_IMPORT_PHOTO){
+    const files=unzipSync(new Uint8Array(await template.arrayBuffer()));
+    const values=["2026-10-24","Mixed domestic wastes","40","26.6","37.9",process.env.TEST_REMOTE_IMPORT_PHOTO,""];
+    let xml=strFromU8(files["xl/worksheets/sheet1.xml"]);xml=xml.replace(/<row r="2"[\s\S]*?<\/row>/,`<row r="2">${values.map((v,i)=>`<c r="${String.fromCharCode(65+i)}2" t="inlineStr"><is><t>${v.replaceAll("&","&amp;")}</t></is></c>`).join("")}</row>`);files["xl/worksheets/sheet1.xml"]=strToU8(xml);
+    const form=new FormData();form.set("file",new File([zipSync(files)],"filled.xlsx",{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}));
+    const preview=await worker.fetch(origin+"/api/report-import?kind=waste",{method:"POST",headers:{origin,cookie:adminCookie,"Content-Type":"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"},body:zipSync(files)});const data=await preview.json();
+    check(preview.status===200&&data.rows.length===1,"uploaded real XLSX validates before any write: "+JSON.stringify(data));
+    const imported=await request("/api/report-import?kind=waste",data.rows[0],adminCookie);const saved=await imported.json();
+    check(imported.status===200&&saved.number==="COSA-102","production Worker imports actual hosted photo and starts COSA-102");
+    const repeated=await request("/api/report-import?kind=waste",data.rows[0],adminCookie);check((await repeated.json()).skipped===true,"HTTP import retry skips saved row");
+    const photoZip=await request("/api/report-photos?kind=waste&download=1",null,adminCookie);const photos=unzipSync(new Uint8Array(await photoZip.arrayBuffer()));check(photos["COSA-102/COSA-102-01.jpg"]?.length>100,"imported photo appears in category ZIP with report name");
+    const sheetExport=await request("/api/report-excel?kind=waste",null,adminCookie);const spreadsheet=unzipSync(new Uint8Array(await sheetExport.arrayBuffer()));check(spreadsheet["xl/media/image1.jpg"]?.length>100,"imported photo is embedded in exported XLSX");
+    const deleted=await request("/api/operations",{action:"record.delete",type:"waste",id:saved.id},adminCookie);check(deleted.status===200,"isolated imported fixture cleaned up");
+  }
   check((await request("/api/report-excel?kind=waste",null,viewerCookie)).status===403,"viewer cannot export Excel");
   check((await request("/api/report-excel?kind=inspection",null,supervisorCookie)).status===403,"supervisor cannot export Excel");
   check((await request("/api/report-photos?kind=inspection&download=1",null,supervisorCookie)).status === 403, "supervisor cannot download admin photo archive");

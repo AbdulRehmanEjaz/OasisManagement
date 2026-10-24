@@ -83,9 +83,9 @@ and verify the setup before operational use.
 
 ### Report exports and codes
 Admin → Reports Management has separate Waste Tracking and Facilities Tracking tabs.
-- Waste codes: COSA-001, COSA-002, …; facilities report codes: OFT-001, OFT-002, … (expand naturally beyond 999). Atomic D1 triggers allocate codes; retries do not allocate duplicates. Deleted codes are compacted within their category by migration 0006: remaining report codes move down and the next submission follows without a gap. Report IDs and photo associations stay stable.
+- Waste codes: COSA-102, COSA-103, …; facilities report codes: OFT-001, OFT-002, … (expand naturally beyond 999). Atomic D1 triggers allocate codes; retries do not allocate duplicates. Deleted codes are compacted within their category by migration 0006: remaining report codes move down and the next submission follows without a gap. Report IDs and photo associations stay stable.
 - Migration 0005 renumbers existing reports chronologically, preserves report IDs/photo relationships, and aligns both counters. Apply it before deploying this version.
-- ZIP uses unchanged stored ImgBB image bytes, named `COSA-001/COSA-001-01.jpg` (or `OFT-001/...`); suffixes distinguish multiple photos.
+- ZIP uses unchanged stored ImgBB image bytes, named `COSA-102/COSA-102-01.jpg` (or `OFT-001/...`); suffixes distinguish multiple photos.
 - Excel exports are actual .xlsx files with all attached photos embedded, Riyadh submission dates, numeric coordinates/weights, clickable Google Maps links, frozen headers, and filters. Facilities Type of Structure is intentionally empty only in the export; the stored value remains unchanged.
 - Both export routes enforce Admin authorization and rate limits. JPEG/PNG images are supported by Excel (the app's upload processing stores JPEG). Downloads are saved only after the complete archive is received and its end record is checked. Image-host failures show an error without saving an incomplete file; retry the download. ZIP32 limits apply: under 4 GB and 65,535 archive entries.
 
@@ -94,3 +94,10 @@ Admin → Reports Management has separate Waste Tracking and Facilities Tracking
 - Active Farms KPIs: `/kpi/login` (Coming soon).
 - Manpower & Equipment: `/hr/login` (Coming soon).
 The legacy `/login` permanently redirects to `/survey/login`. Future dashboard pages do not authenticate users or grant access to Site Survey.
+
+### Admin Excel bulk import
+Reports Management provides separate Waste and Facilities `.xlsx` templates, validation previews, and imports. The Reports worksheet has Date, category/site details, decimal Latitude/Longitude, Photo URL 1, and optional Photo URL 2; see the Instructions worksheet. Use direct public HTTPS image links (JPEG/PNG/WebP), not share/gallery pages. Up to 100 rows and 2 MB per file. Invalid spreadsheets are rejected before importing. Rows are committed individually with progress; an interrupted run can resume, and exact same-file row retries are idempotent. Different files are treated as new imports.
+
+Imports are Admin-only and record the administrator and Excel provenance. Imported coordinates are never labelled hardware-GPS verified. Normal Supervisor submissions retain all existing GPS/ownership checks. Photos use ImgBB: existing ImgBB JPEG/PNG images are retained unchanged after validation; other public image URLs are copied to ImgBB, and WebP is converted to JPEG for Excel compatibility. No new paid resources are created. Failed rows leave earlier completed rows saved and report an error.
+
+Migration 0007 adds Excel import provenance and a Waste numbering floor of 102. New Waste records start at COSA-102 and continue upwards; gap compaction respects that floor. Facilities numbering remains independent. The administrator-requested deletion of the twelve old Waste reports is a one-time production data operation, not part of the migration or future deployments. Private local backups are excluded from Git.

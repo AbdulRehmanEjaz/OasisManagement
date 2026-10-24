@@ -351,11 +351,11 @@ export default function RecordDetail({
             <ShieldCheck size={22} />
             <div>
               <strong>
-                GPS confirmed · ±{Math.round(r.gps_accuracy_meters)} m
+                {r.source === "excel" ? "Imported coordinates · Excel" : `GPS confirmed · ±${Math.round(r.gps_accuracy_meters)} m`}
               </strong>
-              <p>Captured {formatDate(r.gps_captured_at, timezone)}</p>
+              <p>{r.source === "excel" ? "Provided by administrator in an Excel file." : `Captured ${formatDate(r.gps_captured_at, timezone)}`}</p>
               <small>
-                Confirmed {formatDate(r.location_confirmed_at, timezone)}
+                {r.source === "excel" ? "No device GPS verification claimed." : `Confirmed ${formatDate(r.location_confirmed_at, timezone)}`}
               </small>
             </div>
           </div>

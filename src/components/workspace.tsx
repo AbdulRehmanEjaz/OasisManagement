@@ -424,7 +424,7 @@ export default function Workspace({
                           ? "Report updates and email delivery status."
                           : view === "users"
                             ? "Manage accounts, panel access, and PINs."
-                            : (view === "reports-management" ? "Download report photos, organised by report number." : "Account and workspace settings.")}
+                            : (view === "reports-management" ? "Import reports or download spreadsheets and photos." : "Account and workspace settings.")}
               </p>
             </div>
             {submitAllowed && (
@@ -875,7 +875,7 @@ export default function Workspace({
                                 <MapPin size={15} />
                                 {view === "facilities"
                                   ? "View"
-                                  : r.location_confirmed
+                                  : r.source === "excel" ? "Excel import" : r.location_confirmed
                                     ? "Verified"
                                     : "Unverified"}
                               </button>

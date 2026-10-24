@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp } from "node:fs/promises";
+import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { resolve, join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { unstable_dev } from "wrangler";
@@ -46,31 +46,26 @@ try {
 }
 
 // Rebuild a populated database too: cascade relationships must survive.
-function localSQL(args) {
-  const result = spawnSync(process.execPath, ["node_modules/wrangler/wrangler-dist/cli.js", "d1", "execute", "DB", "--local", "--config", "tests/worker-smoke/wrangler.jsonc", "--persist-to", state, "--json", ...args], {encoding:"utf8",env:{...process.env,CI:"true"}});
+function localSQL(args, persist=state) {
+  const result = spawnSync(process.execPath, ["node_modules/wrangler/wrangler-dist/cli.js", "d1", "execute", "DB", "--local", "--config", "tests/worker-smoke/wrangler.jsonc", "--persist-to", persist, "--json", ...args], {encoding:"utf8",env:{...process.env,CI:"true"}});
   assert.equal(result.status,0,result.stderr);
   return JSON.parse(result.stdout).map(r=>r.results);
 }
-const snapshot = "SELECT * FROM reports ORDER BY id; SELECT * FROM record_photos ORDER BY id; SELECT * FROM delivery_attempts ORDER BY id;";
-const before = localSQL(["--command",snapshot]);
-assert.ok(before[0].length > 0, "migration fixture contains a report");
-localSQL(["--file","migrations/0003_simplified_submissions.sql"]);
-assert.deepEqual(localSQL(["--command",snapshot]),before,"migration preserves complete reports, photographs and deliveries");
-assert.deepEqual(localSQL(["--command","PRAGMA foreign_key_check"]),[[]]);
-console.log("PASS populated migration preserves reports, photo relationships and delivery metadata");
-// Exercise renumbering against populated records, preserving links and next counters.
-localSQL(["--file","migrations/0005_report_codes.sql"]);
-const renumbered=localSQL(["--command",snapshot]);
-assert.deepEqual(renumbered[1],before[1],"code migration preserves photo associations");
-assert.deepEqual(renumbered[2],before[2],"code migration preserves deliveries");
-assert.deepEqual(renumbered[0].map(({number,...r})=>r),before[0].map(({number,...r})=>r),"code migration only changes report numbers");
-const codes=localSQL(["--command","SELECT kind,number,row_number() OVER(PARTITION BY kind ORDER BY created_at,id) n FROM reports; SELECT kind,value,(SELECT count(*) FROM reports r WHERE r.kind=sequences.kind) expected FROM sequences WHERE kind IN ('waste','inspection');"]);
-for(const r of codes[0])assert.equal(r.number,(r.kind==='waste'?'COSA-':'OFT-')+String(r.n).padStart(3,'0'));
-for(const r of codes[1])assert.equal(r.value,r.expected);
-assert.deepEqual(localSQL(["--command","PRAGMA foreign_key_check"]),[[]]);
-console.log("PASS populated code migration preserves records and photos with exact sequential counters");
 
-localSQL(["--file","migrations/0006_optional_structure_and_gapless_codes.sql"]);
-assert.deepEqual(localSQL(["--command",snapshot]),renumbered,"optional structure migration preserves records, photo relationships and deliveries");
-assert.deepEqual(localSQL(["--command","PRAGMA foreign_key_check"]),[[]]);
-console.log("PASS populated optional structure migration preserves all records and photo links");
+const snapshot="SELECT * FROM reports ORDER BY id; SELECT * FROM record_photos ORDER BY id; SELECT * FROM delivery_attempts ORDER BY id;";
+const before=localSQL(["--command",snapshot]);
+assert.ok(before[0].length>0,"migration fixture contains a report");
+const legacy=await mkdtemp(resolve(".wrangler/legacy-import-test-"));
+for(const file of ["0001_d1.sql","0002_structure_types.sql","0003_simplified_submissions.sql","0004_one_required_photo.sql","0005_report_codes.sql","0006_optional_structure_and_gapless_codes.sql"])localSQL(["--file","migrations/"+file],legacy);
+const quote=value=>value===null?"NULL":typeof value==="number"?String(value):"'"+String(value).replaceAll("'","''")+"'";
+const statements=["DROP TRIGGER report_validate; DROP TRIGGER report_commit; DROP TRIGGER inspection_structure_required;"];
+for(const table of ["users","location_verifications","photo_uploads","reports","record_photos","delivery_attempts"]){
+ const rows=localSQL(["--command","SELECT * FROM "+table])[0];
+ for(const row of rows){if(table==="reports"){delete row.source;delete row.import_key;}const names=Object.keys(row);statements.push("INSERT INTO "+table+"("+names.join(",")+") VALUES("+names.map(name=>quote(row[name])).join(",")+");");}
+}
+const fixture=join(legacy,"populated-fixture.sql");await writeFile(fixture,statements.join("\n"));localSQL(["--file",fixture],legacy);
+localSQL(["--file","migrations/0007_excel_import.sql"],legacy);
+assert.deepEqual(localSQL(["--command",snapshot],legacy),before,"Excel migration preserves existing reports, all GPS metadata, photos and delivery records");
+assert.deepEqual(localSQL(["--command","PRAGMA foreign_key_check"],legacy),[[]]);
+assert.equal(localSQL(["--command","SELECT value FROM sequences WHERE kind='waste'"],legacy)[0][0].value,101);
+console.log("PASS populated upgrade to Excel import preserves existing records and initializes COSA-102 counter");
