@@ -238,14 +238,14 @@ export default function RecordDetail({
               <>{input("site", "Site Name")}{r.condition && select("condition", "Condition", "status")}</>
             )}
           </div>
-          <label>
+          {type === "inspections" ? <label>Structure type<input value={values.description || ""} maxLength={4000} onChange={(e)=>field("description",e.target.value)}/></label> : <label>
             Description
             <textarea
               value={values.description || ""}
               onChange={(e) => field("description", e.target.value)}
               maxLength={4000}
             />
-          </label>
+          </label>}
           <Button disabled={busy}>
             {busy ? "Saving…" : "Save changes"}
             <Check size={17} />
@@ -304,7 +304,7 @@ export default function RecordDetail({
               ))}
           </dl>
           <div className="detail-description">
-            <h3>{type === "inspections" ? "Observations" : "Description"}</h3>
+            <h3>{type === "inspections" ? "Structure type" : "Description"}</h3>
             <p>{r.description || "No remarks provided."}</p>
           </div>
         </>

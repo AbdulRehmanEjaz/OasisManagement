@@ -65,10 +65,9 @@ export const reportSchema = z
         error("Describe the other waste type.");
     } else if (
       !v.site ||
-      !v.structure_type ||
-      !v.description.trim()
+      !v.structure_type
     )
-      error("Site name, structure type and observations are required.");
+      error("Site name and structure type are required.");
   });
 export const locationSchema = z.object({
   latitude: z.number().min(-90).max(90),

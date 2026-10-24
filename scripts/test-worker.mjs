@@ -69,3 +69,8 @@ for(const r of codes[0])assert.equal(r.number,(r.kind==='waste'?'COSA-':'OFT-')+
 for(const r of codes[1])assert.equal(r.value,r.expected);
 assert.deepEqual(localSQL(["--command","PRAGMA foreign_key_check"]),[[]]);
 console.log("PASS populated code migration preserves records and photos with exact sequential counters");
+
+localSQL(["--file","migrations/0006_optional_structure_and_gapless_codes.sql"]);
+assert.deepEqual(localSQL(["--command",snapshot]),renumbered,"optional structure migration preserves records, photo relationships and deliveries");
+assert.deepEqual(localSQL(["--command","PRAGMA foreign_key_check"]),[[]]);
+console.log("PASS populated optional structure migration preserves all records and photo links");

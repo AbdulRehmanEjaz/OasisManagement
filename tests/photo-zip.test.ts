@@ -12,7 +12,7 @@ test("Photo ZIP preserves original bytes and names each photo by report", async 
   const first = new Uint8Array([255,216,255,4,0,1,9]);
   const second = new Uint8Array([137,80,78,71,0,2,9]);
   let requests = 0;
-  const fetchPhoto = (async () => new Response(requests++ === 0 ? first : second, {headers:{"Content-Type":requests === 1 ? "image/jpeg" : "image/png"}})) as typeof fetch;
+  const fetchPhoto = (async (_url,options) => {assert.equal(options?.redirect,"manual");return new Response(requests++ === 0 ? first : second, {headers:{"Content-Type":requests === 1 ? "image/jpeg" : "image/png"}});}) as typeof fetch;
   const zip = await collect(photoZip(photos([{number:"OFT-001",url:"https://i.ibb.co/a/one.jpg"},{number:"OFT-001",url:"https://i.ibb.co/b/two.png"}]),new AbortController().signal,fetchPhoto));
   const extracted = unzipSync(zip);
   assert.deepEqual(Object.keys(extracted),["OFT-001/OFT-001-01.jpg","OFT-001/OFT-001-02.png"]);

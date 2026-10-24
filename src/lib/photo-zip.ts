@@ -15,7 +15,8 @@ export async function* photoZip(photos: AsyncIterable<ExportPhoto>, signal: Abor
     for await (const photo of photos) {
       if (signal.aborted) throw new Error("Download cancelled.");
       if (++count > 65535) throw new Error("This archive exceeds the ZIP file count limit.");
-      const response = await fetchPhoto(trustedPhotoUrl(photo.url), { redirect: "error", signal: AbortSignal.any([signal, AbortSignal.timeout(60000)]) });
+      // Workers supports manual/follow only; reject redirects through the status check.
+      const response = await fetchPhoto(trustedPhotoUrl(photo.url), { redirect: "manual", signal: AbortSignal.any([signal, AbortSignal.timeout(60000)]) });
       if (!response.ok || !response.body) throw new Error(`Could not download a photo for ${photo.number}. Please retry.`);
       const mime = response.headers.get("content-type")?.split(";")[0].toLowerCase();
       const extension = ({"image/jpeg":"jpg", "image/png":"png", "image/webp":"webp", "image/gif":"gif"} as Record<string,string>)[mime || ""];

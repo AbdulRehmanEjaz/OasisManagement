@@ -22,7 +22,7 @@ export async function* reportExcel(kind:"waste"|"inspection",reports:AsyncIterab
   rows+=`<row r="${row}" ht="78" customHeight="1">${values.map((v,i)=>cell(i,row,v,i===0?2:0)).join('')}</row>`;
   links+=`<hyperlink ref="G${row}" r:id="link${row}"/>`;sheetRels+=`<Relationship Id="link${row}" Type="${office}hyperlink" Target="${esc(link)}" TargetMode="External"/>`;
   for(let index=0;index<report.photos.length;index++){
-   const response=await fetchPhoto(trustedPhotoUrl(report.photos[index].url),{redirect:'error',signal:AbortSignal.any([signal,AbortSignal.timeout(60000)])});
+   const response=await fetchPhoto(trustedPhotoUrl(report.photos[index].url),{redirect:'manual',signal:AbortSignal.any([signal,AbortSignal.timeout(60000)])});
    if(!response.ok)throw new Error(`Could not download photo for ${report.number}. Retry the export.`);
    const mime=response.headers.get('content-type')?.split(';')[0];const ext=mime==='image/jpeg'?'jpg':mime==='image/png'?'png':null;
    if(!ext)throw new Error(`Photo for ${report.number} must be JPEG or PNG for Excel.`);

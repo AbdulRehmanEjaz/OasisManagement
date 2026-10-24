@@ -64,7 +64,7 @@ test("Other waste requires remarks", () =>
     reportSchema.safeParse({ ...waste, category: "Other" }).success,
     false,
   ));
-test("Site inspections require site, structure and observations", () => {
+test("Site inspections require site and structure but allow optional description", () => {
   const data = {
     ...waste,
     kind: "inspection",
@@ -72,8 +72,9 @@ test("Site inspections require site, structure and observations", () => {
     structure_type: "Metal Structures",
   };
   assert.ok(reportSchema.safeParse(data).success);
+  assert.ok(reportSchema.safeParse({...data,description:""}).success);
+  assert.ok(reportSchema.safeParse({...data,description:undefined}).success);
   for (const key of [
-    "description",
     "site",
     "structure_type",
   ])

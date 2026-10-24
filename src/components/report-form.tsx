@@ -407,15 +407,16 @@ export default function ReportForm({
               <>
                 {input("site", "Site Name")}
                 {select("structure_type", "Type of Structure", [...structureTypes])}
+                {input("description", "Structure type", false)}
               </>
             )}
           </div>
           <p className="muted">Submission date and time are captured automatically when you submit.</p>
-          {kind !== "waste" && <label>
-            {kind === "inspection" ? "Observations" : "Description / remarks"}
+          {kind === "facility" && <label>
+            Description / remarks
             <textarea
               rows={3}
-              required={kind === "inspection" || values.category === "Other"}
+              required={values.category === "Other"}
               maxLength={4000}
               value={values.description || ""}
               onChange={(e) => field("description", e.target.value)}

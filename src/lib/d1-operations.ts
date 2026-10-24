@@ -363,7 +363,7 @@ export async function updateRecord(db: D1Store, actor: Actor, input: Data) {
     patch = z
       .object({
         condition: z.string().min(1).max(100).optional(),
-        description: z.string().min(1).max(4000),
+        description: z.string().max(4000),
         site: z.string().trim().min(1).max(200).optional(),
         structure_type: z.enum(structureTypes).optional(),
       })

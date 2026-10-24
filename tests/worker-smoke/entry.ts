@@ -319,14 +319,14 @@ export default {
         inspection_date: "1900-01-01",
         site: "Fixture inspection site",
         structure_type: "Metal Structures",
-        description: "Fixture inspection",
+        description: "",
         location_id: locationId,
         photo_ids: photoIds.slice(0, 1),
         idempotency_key: crypto.randomUUID(),
       });
       assert(
         inspection.number === "OFT-001",
-        "standalone site inspection and numbering",
+        "standalone site inspection and numbering with optional description",
       );
       assert((await db.one("SELECT unit FROM reports WHERE id=?", report.id))?.unit === "Kilograms (kg)", "waste submissions use kilograms regardless of client unit");
       assert((await db.one("SELECT count(*) n FROM record_photos WHERE report_id=?", inspection.id))?.n === 1, "one mandatory photo is sufficient for a site inspection");
@@ -365,6 +365,14 @@ export default {
       assert(summary.waste===1&&summary.inspections===1&&summary.facilities===0,"dashboard summaries count both modules and active facilities");
       await deleteRecord(db,admin,{type:"waste",id:report.id});
       assert(!await db.one("SELECT id FROM reports WHERE id=?",report.id)&&!await db.one("SELECT id FROM record_photos WHERE report_id=?",report.id),"administrator deletion cascades report photo associations");
+      async function newWaste(){return submitReport(db,supervisor,{...input,location_id:await location(supervisor),photo_ids:(await photos(supervisor)).slice(0,1),idempotency_key:crypto.randomUUID()});}
+      const first=await newWaste(),second=await newWaste();
+      assert(first.number==="COSA-001"&&second.number==="COSA-002","deleting final report restarts at 001");
+      await deleteRecord(db,admin,{type:"waste",id:first.id});
+      assert((await db.one("SELECT number FROM reports WHERE id=?",second.id))?.number==="COSA-001","deleting middle report closes numbering gap");
+      assert(!!await db.one("SELECT id FROM record_photos WHERE report_id=?",second.id),"renumbering preserves photo association");
+      const third=await newWaste();assert(third.number==="COSA-002","new report follows compacted sequence");
+      await deleteRecord(db,admin,{type:"waste",id:third.id});await deleteRecord(db,admin,{type:"waste",id:second.id});
       const oldToken = await db.login("082", "viewer-reset-fixture");
       await db.changeAccount(admin, {
         action: "user.pin",

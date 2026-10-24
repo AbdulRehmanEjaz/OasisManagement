@@ -1123,18 +1123,13 @@ export default function Workspace({
               <>
                 <p>
                   <Check size={16} />
-                  2–3 photos uploaded
+                  Site photos uploaded
                 </p>
                 <p>
                   <Check size={16} />
                   GPS location recorded and confirmed
                 </p>
                 <p>{formatDate(success.created_at, timezone)}</p>
-                <span
-                  className={`status ${success.notification_status === "failed" ? "bad" : "good"}`}
-                >
-                  Manager email: {success.notification_status}
-                </span>
               </>
             )}
           </div>

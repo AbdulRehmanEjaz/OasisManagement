@@ -1,5 +1,5 @@
 import HubClock from "@/components/hub-clock";
-import { ArrowUpRight, LockKeyhole, Recycle, Sprout, HardHat, MapPin, ShieldCheck } from "lucide-react";
+import { ArrowUpRight, LockKeyhole, Recycle, Sprout, HardHat, MapPin } from "lucide-react";
 import { redirect } from "next/navigation";
 export const metadata = { title: "Oasis · Operations Hub", description: "Your connected workspace for field operations, farm performance, and workforce management." };
 function Scene({ kind }: {kind: "field" | "farms" | "people"}) {
@@ -39,6 +39,6 @@ export default async function Home({searchParams}:{searchParams:Promise<Record<s
  <article className="hub-card hub-card-soon" aria-disabled="true"><div className="hub-card-art"><Scene kind="farms"/><span className="hub-status"><LockKeyhole size={12}/>Coming soon</span><span className="hub-card-index">02</span></div><div className="hub-card-content"><div className="hub-icon"><Sprout size={25}/></div><h2>Oasis Active Farms<br/>KPIs &amp; Performance Tracking</h2><p>A clearer view of active farms, operational performance, and progress in the oasis.</p><div className="hub-tags"><span>Farm KPIs</span><span>Performance</span></div><footer><span>Growing next</span><LockKeyhole size={18}/></footer></div></article>
  <article className="hub-card hub-card-soon" aria-disabled="true"><div className="hub-card-art"><Scene kind="people"/><span className="hub-status"><LockKeyhole size={12}/>Coming soon</span><span className="hub-card-index">03</span></div><div className="hub-card-content"><div className="hub-icon"><HardHat size={25}/></div><h2>Manpower &amp; Equipment<br/>Management</h2><p>Bring teams, equipment, and daily resource planning together in one place.</p><div className="hub-tags"><span>Workforce</span><span>Equipment</span></div><footer><span>Taking shape</span><LockKeyhole size={18}/></footer></div></article>
  </section>
- <footer className="hub-footer"><span>Rooted in the oasis. Built for the field.</span><span><ShieldCheck size={15}/>Secure PIN access inside each active dashboard</span><small className="hub-credits">©AbdulRehman Ejaz - ADVACON Co. Ltd.®</small></footer>
+ <footer className="hub-footer"><small className="hub-credits">©AbdulRehman Ejaz - ADVACON Co. Ltd.®</small></footer>
  </main>;
 }
