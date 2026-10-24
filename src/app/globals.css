@@ -2585,38 +2585,27 @@ body:has(.operations-hub) { background: #f5f2e9; }
   .topbar .avatar { width: 32px; height: 32px; }
 }
 
-/* Keep the hub comfortably compact on laptop screens. */
+/* Reduce section gaps while preserving the cards' original proportions. */
 @media (min-width: 761px) {
-  .operations-hub { padding-top: 18px; padding-bottom: 14px; }
-  .hub-header { padding-bottom: 12px; }
-  .hub-intro { padding: 22px 0 20px; }
-  .hub-intro > p { bottom: 24px; }
-  .hub-card-art { max-height: 170px; }
-  .hub-scene { height: 170px; object-fit: cover; }
-  .hub-card-content { padding: 18px 20px; }
-  .hub-icon { margin-bottom: 12px; height: 36px; width: 40px; }
-  .hub-card h2 { margin-bottom: 8px; }
-  .hub-card p { line-height: 1.55; margin-bottom: 12px; }
-  .hub-tags { margin-bottom: 12px; }
-  .hub-card-content footer { padding-top: 10px; min-height: 40px; }
-  .hub-footer { padding-top: 14px; }
-}
-@media (min-width: 761px) and (max-height: 820px) {
-  .hub-brand > img { max-width: 280px; }
-  .hub-intro h1 { font-size: clamp(36px, 3.6vw, 48px); }
-  .hub-card-art, .hub-scene { height: 140px; }
-  .hub-intro > p { position: absolute; margin-top: 0; max-width: 320px; }
-}
-@media (min-width: 761px) and (max-height: 700px) {
-  .operations-hub { padding-top: 10px; }
-  .hub-brand > img { max-width: 240px; }
-  .hub-intro { padding: 16px 0; }
-  .hub-card-art, .hub-scene { height: 110px; }
-  .hub-card-content { padding: 14px 18px; }
-  .hub-icon { margin-bottom: 8px; height: 30px; width: 34px; }
+ .operations-hub { min-height: 100dvh; padding-top: 12px; padding-bottom: 12px; display: flex; flex-direction: column; }
+ .hub-header { padding-bottom: 8px; flex-shrink: 0; }
+ .hub-intro { padding: 14px 0 18px; display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; }
+ .hub-intro h1 { font-size: clamp(32px, 3.2vw, 46px); line-height: 1.12; }
+ .hub-intro h1 br { display: none; }
+ .hub-intro h1 em::before { content: " "; }
+ .hub-intro > p { position: static; margin: 0; flex-shrink: 0; }
+ .hub-cards { flex: 1; }
+ .hub-footer { padding-top: 12px; }
 }
 @media (max-width: 760px) {
-  .hub-header { padding-bottom: 16px; gap: 12px; }
-  .hub-intro { padding: 24px 0 22px; }
-  .hub-intro > p { margin-top: 14px; }
+ .hub-header { padding-bottom: 16px; gap: 12px; }
+ .hub-intro { padding: 24px 0 22px; }
+ .hub-intro > p { margin-top: 14px; }
+}
+@media (min-width: 761px) and (max-height: 820px) {
+ .operations-hub { padding-top: 8px; padding-bottom: 8px; }
+ .hub-brand > img { width: 240px; }
+ .hub-header { padding-bottom: 6px; }
+ .hub-intro { padding: 8px 0 12px; }
+ .hub-footer { padding-top: 10px; }
 }
