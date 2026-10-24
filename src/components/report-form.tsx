@@ -126,6 +126,7 @@ export default function ReportForm({
       setError("This browser does not support device GPS.");
       return;
     }
+    const deadline = Date.now() + 10000;
     setGpsBusy(true);
     let best: GeolocationPosition | undefined;
     let done = false;
@@ -163,14 +164,18 @@ export default function ReportForm({
         // Only a server-issued ID can later confirm and submit a report.
         if (!enabled) return;
         setGpsSaving(true);
-        const result = await api("location.capture", v, AbortSignal.timeout(15000));
+        const remaining = deadline - Date.now();
+        if (remaining <= 0) throw new Error("The 10-second location limit was reached. Please try again.");
+        const result = await api("location.capture", v, AbortSignal.timeout(remaining));
         if (mounted.current) { setGps({ ...v, id: result.id }); setMapOpen(true); }
       } catch (e) {
-        if (mounted.current) setError((e as Error).name === "TimeoutError" ? "The location request took too long. Check your internet connection and try again." : (e as Error).message);
+        if (mounted.current) setError((e as Error).name === "TimeoutError" ? "The 10-second location limit was reached. Check your connection and try again." : (e as Error).message);
       } finally {
         if (mounted.current) { setGpsBusy(false); setGpsSaving(false); }
       }
     }
+    // Hard deadline also covers permission prompts; accurate fixes finish immediately.
+    timerRef.current = setTimeout(() => void finish(best, "No accurate GPS fix within 10 seconds. Move outdoors, enable precise location, and try again."), 10000);
     watchRef.current = navigator.geolocation.watchPosition(
       (p) => {
         if (done || Date.now() - p.timestamp > 30000 || p.timestamp > Date.now() + 10000 ||
@@ -191,9 +196,8 @@ export default function ReportForm({
           e.code === 1 ? "Location permission denied. Enable precise location in browser settings, then retry." : e.code === 2 ? "Your device could not locate you. Turn on location services, move outdoors, and retry." : "GPS timed out. Enable precise location or use a GPS-equipped phone, then retry.",
         );
       },
-      { enableHighAccuracy: true, maximumAge: 0, timeout: 12000 },
+      { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 },
     );
-    timerRef.current = setTimeout(() => void finish(best), 20000);
   }
   async function mapReady() {
     if (!gps || mapViewed) return;
@@ -467,7 +471,7 @@ export default function ReportForm({
             </div>
             <p className="muted" role="status" aria-live="polite">
               {gpsBusy
-                ? gpsSaving ? "Saving your GPS reading securely…" : `Looking for a precise position for up to 20 seconds${gps ? ` · best accuracy so far: ±${Math.ceil(gps.accuracy)} m` : ""}. Allow precise location access when prompted.`
+                ? gpsSaving ? "Saving your GPS reading securely…" : `Looking for a precise position for up to 10 seconds${gps ? ` · best accuracy so far: ±${Math.ceil(gps.accuracy)} m` : ""}. Allow precise location access when prompted.`
                 : `Uses your device's location services with high accuracy enabled. Required accuracy: within ${threshold} m. Your browser controls GPS availability and permission.`}
             </p>
             {gpsHint && <p className="notice" role="status">{gpsHint}</p>}
