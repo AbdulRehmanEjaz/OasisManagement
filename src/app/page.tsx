@@ -3,7 +3,7 @@ import { ArrowUpRight, LockKeyhole, Recycle, Sprout, HardHat, MapPin } from "luc
 import { redirect } from "next/navigation";
 export const metadata = { title: "Oasis · Operations Hub", description: "Your connected workspace for field operations, farm performance, and workforce management." };
 function Scene({ kind }: {kind: "field" | "farms" | "people"}) {
- return <svg viewBox="0 0 440 250" fill="none" aria-hidden="true" className="hub-scene">
+ return <svg preserveAspectRatio="xMidYMid slice" viewBox="0 0 440 250" fill="none" aria-hidden="true" className="hub-scene">
  <defs><linearGradient id={kind+"sky"} x1="220" y1="0" x2="220" y2="250" gradientUnits="userSpaceOnUse"><stop stopColor={kind==="field"?"#e9d5aa":"#dde4df"}/><stop offset="1" stopColor={kind==="field"?"#f8edcf":"#f2f3ed"}/></linearGradient></defs>
  <rect width="440" height="250" fill={"url(#"+kind+"sky)"}/><circle cx="344" cy="51" r="24" fill={kind==="field"?"#fcf2cf":"#f9f9f3"}/>
  <path d="M0 155L48 92 76 108 108 58 145 76 182 138 236 104 292 145 334 95 376 125 440 85V250H0Z" fill={kind==="field"?"#b98b61":"#b9c4b8"}/><path d="M0 186L80 143 140 170 227 138 294 176 364 145 440 166V250H0Z" fill={kind==="field"?"#7a8e61":"#8d9e8b"}/>
