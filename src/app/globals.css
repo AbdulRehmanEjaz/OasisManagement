@@ -2557,3 +2557,30 @@ body:has(.operations-hub) { background: #f5f2e9; }
 .export-counts strong { font-size: 26px; color: var(--ink); margin-right: 5px; }
 .export-example { font-family: monospace; padding: 10px 12px; background: var(--soft); border-radius: 9px; overflow-wrap: anywhere; }
 @media(max-width:540px) { .export-panel { padding: 18px; } .export-panel [role="tab"] { font-size: 12px; padding: 9px; } }
+
+/* Shared transparent branding and compact panel navigation. */
+.pin-brand { width: min(100%, 330px); display: block; border-radius: 12px; }
+.pin-brand img { display: block; width: 100%; height: auto; }
+.panel-brand { background: var(--surface); justify-content: center; padding: 12px 16px; text-decoration: none; border: 1px solid var(--line); }
+.panel-brand img { display: block; width: 100%; max-width: 220px; height: auto; }
+.panel-brand:focus-visible, .pin-brand:focus-visible { outline: 3px solid var(--teal); outline-offset: 5px; }
+@media (max-width: 640px) {
+  .topbar { display: flex; align-items: center; gap: 12px; min-height: 76px; padding: 10px 12px; margin-bottom: 24px; border: 1px solid var(--line); border-radius: 20px; background: var(--surface); box-shadow: 0 4px 18px #173f3006; }
+  .topbar .panel-brand { flex: 1; width: auto; min-width: 0; min-height: 0; padding: 0; border: 0; border-radius: 0; justify-content: flex-start; background: transparent; }
+  .panel-brand img { width: min(100%, 212px); max-height: 62px; object-fit: contain; object-position: left center; }
+  .topbar .top-tools { flex: 0 0 auto; padding: 0; background: transparent; border-radius: 0; gap: 0; }
+  .topbar .top-date, .topbar .top-divider, .topbar .workspace-label, .topbar .user-label { display: none; }
+  .topbar .top-actions { margin: 0; gap: 7px; }
+  .topbar .avatar { width: 36px; height: 36px; font-size: 12px; background: #edf2e7; }
+  .topbar .menu-toggle { display: inline-flex; width: 40px; height: 44px; border-radius: 12px; color: #174b35; }
+  .topbar .menu-toggle[aria-expanded="true"] { background: #e3efce; }
+  .sidebar.sidebar-open { top: 104px; }
+  .pin-login { gap: 24px; padding: 32px 20px; }
+  .pin-brand { width: min(100%, 300px); }
+  .pin-card h1 { font-size: clamp(25px, 6.6vw, 32px); letter-spacing: -.8px; }
+}
+@media (max-width: 360px) {
+  .topbar { gap: 8px; padding: 10px; }
+  .topbar .top-actions { gap: 3px; }
+  .topbar .avatar { width: 32px; height: 32px; }
+}

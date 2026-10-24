@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
-import { Leaf, ArrowRight, LockKeyhole } from "lucide-react";
+import { ArrowRight, LockKeyhole } from "lucide-react";
 import { Button } from "./ui/button";
 export default function Login() {
   const [pin, setPin] = useState(""),
@@ -29,17 +29,14 @@ export default function Login() {
   }
   return (
     <main className="pin-login">
-      <div className="pin-brand">
-        <Leaf size={30} />
-        <strong>
-          oasis<span>↗</span>
-        </strong>
-      </div>
+      <a className="pin-brand" href="/" aria-label="Back to Operations Hub">
+        <img src="/branding/advacon-alula-oasis-transparent.png" width="330" height="110" alt="ADVACON and AlUla Oasis Management" />
+      </a>
       <section className="pin-card">
         <span className="pin-lock">
           <LockKeyhole size={26} />
         </span>
-        <h1>Welcome to Oasis</h1>
+        <h1>Welcome to Site Survey</h1>
         <p>Enter your PIN to continue.</p>
         <form onSubmit={submit}>
           <label htmlFor="panel-pin">PIN</label>

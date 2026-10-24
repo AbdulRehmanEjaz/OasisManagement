@@ -251,16 +251,9 @@ export default function Workspace({
     <main className="app-shell">
       <a className="hub-return" href="/">← All dashboards</a>
       <header className="topbar">
-        <button
-          className="brand"
-          onClick={() => navigate("dashboard")}
-          aria-label="Oasis home"
-        >
-          <Leaf size={29} />
-          <strong>
-            oasis<span>↗</span>
-          </strong>
-        </button>
+        <a className="brand panel-brand" href="/" aria-label="Back to Operations Hub">
+          <img src="/branding/advacon-alula-oasis-transparent.png" width="330" height="110" alt="ADVACON and AlUla Oasis Management" />
+        </a>
         <div className="top-tools">
           <div className="workspace-label">
             <span className="online-dot" />
@@ -327,6 +320,8 @@ export default function Workspace({
               variant="ghost"
               size="icon"
               aria-label="Toggle navigation"
+              aria-expanded={menu}
+              aria-controls="panel-navigation"
               onClick={() => setMenu(!menu)}
             >
               {menu ? <X size={20} /> : <Menu size={20} />}
@@ -335,7 +330,7 @@ export default function Workspace({
         </div>
       </header>
       <div className="app-grid">
-        <aside className={`sidebar ${menu ? "sidebar-open" : ""}`}>
+        <aside id="panel-navigation" className={`sidebar ${menu ? "sidebar-open" : ""}`}>
           <div className="sidebar-main">
             <nav>
               {navs.map((v) => {
