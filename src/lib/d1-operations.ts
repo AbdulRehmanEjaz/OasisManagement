@@ -1,3 +1,4 @@
+import { reportLocation } from "./report-location";
 import { z } from "zod";
 import { D1Store, HttpError, type Actor, type Data } from "./d1-store";
 import { canReadType, canSubmit } from "./access-policy";
@@ -153,7 +154,8 @@ export async function readRecords(
     if (type === "notifications") return { ...row, is_read: !!row.is_read };
     if (!["waste", "inspections", "facilities"].includes(type)) return row;
     const photos = JSON.parse(row.photo_list || "[]");
-    const result = { ...row };
+    const result = { ...reportLocation(row) };
+    if (actor.role !== "admin") delete result.location_edited_by;
     delete result.photo_ids;
     delete result.creator_id;
     delete result.location_id;
@@ -444,4 +446,17 @@ export async function deleteRecord(db: D1Store, actor: Actor, input: Data) {
     ),
   ]);
   return { ok: true };
+}
+
+export async function updateReportLocation(db:D1Store,actor:Actor,input:Data) {
+ if(actor.role!=="admin")throw new HttpError("FORBIDDEN",403);
+ const p=z.object({id:z.uuid(),type:z.enum(["waste","inspections"]),latitude:z.number().min(-90).max(90),longitude:z.number().min(-180).max(180)}).parse(input);
+ const row=await db.one("SELECT * FROM reports WHERE id=? AND kind=?",p.id,p.type==="waste"?"waste":"inspection");
+ if(!row)throw new HttpError("Record unavailable.",404);
+ const old=reportLocation(row),editedAt=new Date().toISOString();
+ await db.write(actor,"admin",[
+  db.stmt("UPDATE reports SET admin_latitude=?,admin_longitude=?,location_edited_at=?,location_edited_by=? WHERE id=?",p.latitude,p.longitude,editedAt,actor.id,p.id),
+  db.audit(actor.id,p.type,p.id,"LOCATION_UPDATED",{old:{latitude:old.latitude,longitude:old.longitude},new:{latitude:p.latitude,longitude:p.longitude},original:{latitude:row.latitude,longitude:row.longitude}}),
+ ]);
+ return {id:p.id,latitude:p.latitude,longitude:p.longitude,location_edited_at:editedAt};
 }

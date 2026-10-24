@@ -1,6 +1,5 @@
 "use client";
 import { useEffect, useState } from "react";
-import dynamic from "next/dynamic";
 import {
   Eye,
   MapPin,
@@ -14,11 +13,8 @@ import {
 import { api, read, formatDate, type Row } from "@/lib/client";
 import Modal from "./modal";
 import { structureTypes } from "@/lib/validation";
+import AdminReportLocation from "./admin-report-location";
 import { Button } from "./ui/button";
-const LocationMap = dynamic(() => import("./map"), {
-  ssr: false,
-  loading: () => <div className="map-loading">Loading map…</div>,
-});
 export default function RecordDetail({
   record: r,
   type,
@@ -342,20 +338,17 @@ export default function RecordDetail({
           <MapPin size={18} />
           Recorded location
         </h3>
-        <LocationMap records={[r]} />
-        <p className="coordinate-text">
-          {r.latitude}, {r.longitude}
-        </p>
+        <AdminReportLocation record={r} type={type} admin={admin} onSaved={onRefresh}/>
         {type !== "facilities" && (
           <div className="gps-state verified">
             <ShieldCheck size={22} />
             <div>
               <strong>
-                {r.source === "excel" ? "Imported coordinates · Excel" : `GPS confirmed · ±${Math.round(r.gps_accuracy_meters)} m`}
+                {r.location_edited_at ? "Location corrected by Admin" : r.source === "excel" ? "Imported coordinates · Excel" : `GPS confirmed · ±${Math.round(r.gps_accuracy_meters)} m`}
               </strong>
-              <p>{r.source === "excel" ? "Provided by administrator in an Excel file." : `Captured ${formatDate(r.gps_captured_at, timezone)}`}</p>
+              <p>{r.location_edited_at ? `Updated ${formatDate(r.location_edited_at, timezone)}` : r.source === "excel" ? "Provided by administrator in an Excel file." : `Captured ${formatDate(r.gps_captured_at, timezone)}`}</p>
               <small>
-                {r.source === "excel" ? "No device GPS verification claimed." : `Confirmed ${formatDate(r.location_confirmed_at, timezone)}`}
+                {r.location_edited_at ? "Original capture retained; this correction is not a new GPS verification." : r.source === "excel" ? "No device GPS verification claimed." : `Confirmed ${formatDate(r.location_confirmed_at, timezone)}`}
               </small>
             </div>
           </div>

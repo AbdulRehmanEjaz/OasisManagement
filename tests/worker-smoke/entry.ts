@@ -12,6 +12,7 @@ import {
   submitReport,
   registerFacility,
   updateRecord,
+  updateReportLocation,
   deleteRecord,
   submissionDate,
 } from "../../src/lib/d1-operations";
@@ -364,6 +365,19 @@ export default {
       );
       const summary=await readRecords(db,admin,"overview",new URLSearchParams());
       assert(summary.waste===1&&summary.inspections===1&&summary.facilities===0,"dashboard summaries count both modules and active facilities");
+      await rejects(()=>updateReportLocation(db,supervisor,{type:"waste",id:report.id,latitude:26.7,longitude:37.8}),"supervisor cannot change report location");
+      await rejects(()=>updateReportLocation(db,viewer,{type:"waste",id:report.id,latitude:26.7,longitude:37.8}),"viewer cannot change report location");
+      await rejects(()=>updateReportLocation(db,admin,{type:"waste",id:report.id,latitude:91,longitude:37.8}),"Admin location changes reject invalid coordinates");
+      await rejects(()=>updateReportLocation(db,{...viewer,role:"admin"},{type:"waste",id:report.id,latitude:26.7,longitude:37.8}),"forged Admin session cannot change report location");
+      for(const [type,id] of [["waste",report.id],["inspections",inspection.id]]){
+       await updateReportLocation(db,admin,{type,id,latitude:26.7,longitude:37.8});
+       const raw=await db.one("SELECT * FROM reports WHERE id=?",id);
+       assert(raw?.latitude===26.612345678&&raw?.admin_latitude===26.7,"original GPS remains immutable for "+type);
+       const visible=await readRecords(db,viewer,type,new URLSearchParams({id,map:"1"}));
+       assert(visible.data[0].latitude===26.7&&visible.data[0].longitude===37.8&&visible.data[0].location_confirmed===0&&!visible.data[0].location_edited_by,"corrected map coordinates and Viewer privacy for "+type);
+       assert(!!await db.one("SELECT id FROM audit_logs WHERE record_id=? AND action='LOCATION_UPDATED'",id),"location correction audited for "+type);
+      }
+      await rejects(()=>db.stmt("UPDATE reports SET admin_latitude=0 WHERE id=?",report.id).run(),"database rejects location override without Admin guard");
       await deleteRecord(db,admin,{type:"waste",id:report.id});
       assert(!await db.one("SELECT id FROM reports WHERE id=?",report.id)&&!await db.one("SELECT id FROM record_photos WHERE report_id=?",report.id),"administrator deletion cascades report photo associations");
       async function newWaste(){return submitReport(db,supervisor,{...input,location_id:await location(supervisor),photo_ids:(await photos(supervisor)).slice(0,1),idempotency_key:crypto.randomUUID()});}

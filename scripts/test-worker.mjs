@@ -61,11 +61,19 @@ const quote=value=>value===null?"NULL":typeof value==="number"?String(value):"'"
 const statements=["DROP TRIGGER report_validate; DROP TRIGGER report_commit; DROP TRIGGER inspection_structure_required;"];
 for(const table of ["users","location_verifications","photo_uploads","reports","record_photos","delivery_attempts"]){
  const rows=localSQL(["--command","SELECT * FROM "+table])[0];
- for(const row of rows){if(table==="reports"){delete row.source;delete row.import_key;}const names=Object.keys(row);statements.push("INSERT INTO "+table+"("+names.join(",")+") VALUES("+names.map(name=>quote(row[name])).join(",")+");");}
+ for(const row of rows){if(table==="reports"){delete row.source;delete row.import_key;delete row.admin_latitude;delete row.admin_longitude;delete row.location_edited_at;delete row.location_edited_by;}const names=Object.keys(row);statements.push("INSERT INTO "+table+"("+names.join(",")+") VALUES("+names.map(name=>quote(row[name])).join(",")+");");}
 }
 const fixture=join(legacy,"populated-fixture.sql");await writeFile(fixture,statements.join("\n"));localSQL(["--file",fixture],legacy);
 localSQL(["--file","migrations/0007_excel_import.sql"],legacy);
-assert.deepEqual(localSQL(["--command",snapshot],legacy),before,"Excel migration preserves existing reports, all GPS metadata, photos and delivery records");
+const legacyBefore=structuredClone(before);for(const row of legacyBefore[0]){delete row.admin_latitude;delete row.admin_longitude;delete row.location_edited_at;delete row.location_edited_by;}
+assert.deepEqual(localSQL(["--command",snapshot],legacy),legacyBefore,"Excel migration preserves existing reports, all GPS metadata, photos and delivery records");
 assert.deepEqual(localSQL(["--command","PRAGMA foreign_key_check"],legacy),[[]]);
 assert.equal(localSQL(["--command","SELECT value FROM sequences WHERE kind='waste'"],legacy)[0][0].value,101);
 console.log("PASS populated upgrade to Excel import preserves existing records and initializes COSA-102 counter");
+
+const beforeLocationMigration=localSQL(["--command",snapshot],legacy);
+localSQL(["--file","migrations/0008_admin_report_location.sql"],legacy);
+const afterLocationMigration=localSQL(["--command",snapshot],legacy);
+for(const row of afterLocationMigration[0]){assert.equal(row.admin_latitude,null);delete row.admin_latitude;delete row.admin_longitude;delete row.location_edited_at;delete row.location_edited_by;}
+assert.deepEqual(afterLocationMigration,beforeLocationMigration);
+console.log("PASS Admin location migration preserves every report, original coordinate and photo relationship");

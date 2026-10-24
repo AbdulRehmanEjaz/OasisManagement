@@ -877,7 +877,7 @@ export default function Workspace({
                                 <MapPin size={15} />
                                 {view === "facilities"
                                   ? "View"
-                                  : r.source === "excel" ? "Excel import" : r.location_confirmed
+                                  : r.location_edited_at ? "Admin updated" : r.source === "excel" ? "Excel import" : r.location_confirmed
                                     ? "Verified"
                                     : "Unverified"}
                               </button>

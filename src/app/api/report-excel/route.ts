@@ -1,3 +1,4 @@
+import { reportLocation } from "@/lib/report-location";
 import { NextRequest } from "next/server";
 import { z } from "zod";
 import { requireUser } from "@/lib/backend";
@@ -13,7 +14,7 @@ export async function GET(req:NextRequest){
    while(true){
     const rows=await db.all('SELECT * FROM reports WHERE kind=? AND id>? ORDER BY id LIMIT 100',kind,cursor);
     if(!rows.length)return;
-    for(const row of rows){const photos=await db.all('SELECT url FROM record_photos WHERE report_id=? ORDER BY id',row.id);yield {...row,photos} as ExcelReport;}
+    for(const row of rows){const photos=await db.all('SELECT url FROM record_photos WHERE report_id=? ORDER BY id',row.id);yield {...reportLocation(row),photos} as ExcelReport;}
     cursor=rows[rows.length-1].id;
    }
   }

@@ -2613,3 +2613,4 @@ body:has(.operations-hub) { background: #f5f2e9; }
 .import-preview { padding: 16px; border: 1px solid var(--line); border-radius: 14px; background: #f3f6ec; margin-top: 14px; }
 .import-preview p, .import-errors { white-space: pre-wrap; overflow-wrap: anywhere; }
 @media (max-width:640px) { .import-actions .btn { width: 100%; justify-content: center; } }
+.admin-location-form { margin-top: 16px; padding: 16px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }

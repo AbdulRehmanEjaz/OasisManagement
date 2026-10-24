@@ -12,6 +12,7 @@ import {
   submitReport,
   registerFacility,
   updateRecord,
+  updateReportLocation,
   deleteRecord,
 } from "@/lib/d1-operations";
 import { sendNotification } from "@/lib/notifications";
@@ -38,7 +39,7 @@ export async function POST(req: NextRequest) {
     const input = await req.json(),
       action = z.enum([
         "location.capture", "location.view", "location.confirm", "report.submit",
-        "facility.create", "record.update", "record.delete", "notification.read",
+        "facility.create", "record.update", "record.location.update", "record.delete", "notification.read",
         "delivery.retry", "option.add", "option.toggle",
       ]).parse(input.action);
     await db.limit("operation:" + profile.id + ":" + action, 40);
@@ -63,6 +64,8 @@ export async function POST(req: NextRequest) {
       });
     }
     if (profile.role !== "admin") throw new HttpError("FORBIDDEN", 403);
+    if (action === "record.location.update")
+      return json(await updateReportLocation(db,profile,input));
     if (action === "facility.create")
       return json(await registerFacility(db, profile, input));
     if (action === "record.update")

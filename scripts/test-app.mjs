@@ -169,6 +169,7 @@ try {
   r = await request("/api/auth", { action: "login", pin: "765" });
   const supervisorCookie = (r.headers.get("set-cookie") || "").split(";")[0];
   check(r.status === 200, "PIN-only supervisor login");
+  for(const cookie of [viewerCookie,supervisorCookie])check((await request("/api/operations",{action:"record.location.update",type:"waste",id:crypto.randomUUID(),latitude:26,longitude:37},cookie)).status===403,"non-Admin cannot change report location through HTTP");
   check((await request("/api/report-import?kind=waste",null,viewerCookie)).status===403,"viewer cannot access import templates");
   check((await request("/api/report-import?kind=inspection",{},supervisorCookie)).status===403,"supervisor cannot bulk import");
   check((await request("/api/report-import?kind=waste",{},adminCookie,{origin:"https://evil.example"})).status===403,"bulk imports reject cross-origin requests");
@@ -187,6 +188,10 @@ try {
     const repeated=await request("/api/report-import?kind=waste",data.rows[0],adminCookie);check((await repeated.json()).skipped===true,"HTTP import retry skips saved row");
     const photoZip=await request("/api/report-photos?kind=waste&download=1",null,adminCookie);const photos=unzipSync(new Uint8Array(await photoZip.arrayBuffer()));check(photos["COSA-102/COSA-102-01.jpg"]?.length>100,"imported photo appears in category ZIP with report name");
     const sheetExport=await request("/api/report-excel?kind=waste",null,adminCookie);const spreadsheet=unzipSync(new Uint8Array(await sheetExport.arrayBuffer()));check(spreadsheet["xl/media/image1.jpg"]?.length>100,"imported photo is embedded in exported XLSX");
+    const correction=await request("/api/operations",{action:"record.location.update",type:"waste",id:saved.id,latitude:26.75,longitude:37.85},adminCookie);
+    check(correction.status===200,"Admin corrects imported report location through HTTP");
+    const corrected=await request("/api/operations?type=waste&id="+saved.id,null,viewerCookie);const correctedData=await corrected.json();check(correctedData.data[0].latitude===26.75&&correctedData.data[0].longitude===37.85,"Viewer sees corrected coordinates without edit permission");
+    const correctedExport=await request("/api/report-excel?kind=waste",null,adminCookie);const correctedWorkbook=unzipSync(new Uint8Array(await correctedExport.arrayBuffer()));check(strFromU8(correctedWorkbook["xl/worksheets/sheet1.xml"]).includes("26.75")&&strFromU8(correctedWorkbook["xl/worksheets/_rels/sheet1.xml.rels"]).includes("26.75,37.85"),"Excel and Google Maps links use Admin corrected location");
     const deleted=await request("/api/operations",{action:"record.delete",type:"waste",id:saved.id},adminCookie);check(deleted.status===200,"isolated imported fixture cleaned up");
   }
   check((await request("/api/report-excel?kind=waste",null,viewerCookie)).status===403,"viewer cannot export Excel");
