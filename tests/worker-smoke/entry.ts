@@ -494,10 +494,13 @@ export default {
       assert(importedA.id===importedB.id,'KPI import is idempotent across filenames and concurrent retries');
       const importedAfter=calculateDashboard((await readKpiReports(db,admin)).reports,{mode:'project'},'2026-10-25');
       assert(importedAfter.cumulative.totals.irrigation-importedBefore.cumulative.totals.irrigation===200&&importedAfter.cumulative.totals.compost-importedBefore.cumulative.totals.compost===70,'historical imports update actual KPI totals without double counting');
-      assert(importedAfter.cumulative.wasteCollectionM3-importedBefore.cumulative.wasteCollectionM3===18,'imported trips convert to Dyana 3 m3 and Truck 12 m3');
+      assert(importedAfter.cumulative.wasteCollectionM3-importedBefore.cumulative.wasteCollectionM3===3,'imported m3 volumes are not multiplied by manual trip factors');
+      const directImported=(await readKpiReports(db,admin)).reports.find(r=>r.id===importedA.id)!;assert(directImported.dayna_trips===0&&directImported.truck_trips===0&&directImported.dayna_m3===2&&directImported.truck_m3===1&&directImported.volume_unit==='m3','import volumes and manual trip counts have separate storage');
       const importedView=(await readKpiReports(db,viewer)).reports.find(r=>r.id===importedA.id)!;
       assert((importedView.import_metadata as any).gps===importEntry.gps&&!(importedView.import_metadata as any).supervisorName,'Excel GPS is preserved while Viewer account identity privacy remains enforced');
       await rejects(()=>importKpiReport(db,admin,{...importInput,row:{...importEntry,metrics:{...importEntry.metrics,trees_irrigated:300}}}),'conflicting values for existing historical identity never overwrite or duplicate it');
+      await updateKpiReport(db,admin,{id:importedA.id,entry:{...kpiEntry,report_date:importEntry.date,location:importEntry.location,metrics:{trees_irrigated:200,dayna_trips:0,truck_trips:0},waste_volume_m3:{dayna:9.5,truck:12.25}}});
+      const editedDirect=(await readKpiReports(db,admin)).reports.find(r=>r.id===importedA.id)!;assert(editedDirect.dayna_m3===9.5&&editedDirect.truck_m3===12.25&&editedDirect.dayna_trips===0,'Admin edits imported m3 volumes without converting to trips');
       const secondHistorical=await importKpiReport(db,admin,{...importInput,row:{...importEntry,time:'11:30:00'}});
       assert(secondHistorical.id!==importedA.id,'distinct historical submissions on same date remain separate');
       await rejects(()=>importKpiReport(db,admin,{...importInput,supervisor_id:surveyAdmin.id}),'import cannot assign reports to Survey accounts');

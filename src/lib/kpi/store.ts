@@ -3,7 +3,7 @@ import {D1Store,HttpError,type Actor,type Data} from '../d1-store';
 import {PROJECT,ACTIVITY_FIELDS,type DailyKpiReport} from './config';
 import {saudiDate} from './calculations';
 const metricsSchema=z.object(Object.fromEntries(ACTIVITY_FIELDS.map(f=>[f.key,f.integer?z.number().int().min(0).max(1000000000).default(0):z.number().min(0).max(1000000000).default(0)]))).strict();
-export const kpiEntrySchema=z.object({report_date:z.iso.date().refine(d=>d>=PROJECT.start&&d<=PROJECT.end,'Report date must be within 01 Oct–31 Dec 2026.'),location:z.string().trim().max(200).default(''),notes:z.string().max(4000).default(''),custom_fields:z.record(z.string().regex(/^custom_[a-zA-Z0-9_-]{1,64}$/),z.string().max(2000)).default({}),metrics:metricsSchema,supervisor_id:z.uuid().optional()});
+export const kpiEntrySchema=z.object({report_date:z.iso.date().refine(d=>d>=PROJECT.start&&d<=PROJECT.end,'Report date must be within 01 Oct–31 Dec 2026.'),location:z.string().trim().max(200).default(''),notes:z.string().max(4000).default(''),waste_volume_m3:z.object({dayna:z.number().min(0).max(1e9),truck:z.number().min(0).max(1e9)}).optional(),custom_fields:z.record(z.string().regex(/^custom_[a-zA-Z0-9_-]{1,64}$/),z.string().max(2000)).default({}),metrics:metricsSchema,supervisor_id:z.uuid().optional()});
 export async function readKpiReports(db:D1Store,actor:Actor,cursor=''){
  if(db.dashboard!=="kpi"||actor.dashboard!=="kpi")throw new HttpError("FORBIDDEN",403);
  const rows=await db.all(`SELECT r.*,u.full_name supervisor_name FROM kpi_daily_reports r JOIN users u ON u.id=r.supervisor_id WHERE r.project_id=? AND r.deleted_at IS NULL AND r.id>?${actor.role==='supervisor'?' AND r.supervisor_id=?':''} ORDER BY r.id LIMIT 251`,PROJECT.id,cursor,...(actor.role==='supervisor'?[actor.id]:[]));
@@ -11,7 +11,7 @@ export async function readKpiReports(db:D1Store,actor:Actor,cursor=''){
  const reports=selected.map(row=>{
   const result:Data={...JSON.parse(row.metrics),id:row.id,project_id:row.project_id,report_date:row.report_date,location:row.location,notes:row.notes,custom_fields:JSON.parse(row.custom_fields||'{}'),created_at:row.created_at,updated_at:row.updated_at};
   if(actor.role!=='viewer'){result.supervisor_id=row.supervisor_id;result.supervisor_name=row.supervisor_name;}
-  const meta=JSON.parse(row.import_metadata||'{}');result.source=row.import_key?'excel':'manual';result.import_metadata=actor.role==='viewer'?{time:meta.time,gps:meta.gps}:meta;
+  const meta=JSON.parse(row.import_metadata||'{}');result.source=row.import_key?'excel':'manual';result.volume_unit=meta.volumeUnit==='m3'?'m3':'trips';result.dayna_m3=Number(row.dayna_m3||0);result.truck_m3=Number(row.truck_m3||0);result.import_metadata=actor.role==='viewer'?{time:meta.time,gps:meta.gps}:meta;
   return result as DailyKpiReport;
  });
  const submittedToday=actor.role==='supervisor'&&!!await db.one('SELECT id FROM kpi_daily_reports WHERE project_id=? AND supervisor_id=? AND report_date=?',PROJECT.id,actor.id,saudiDate());
@@ -23,6 +23,7 @@ export async function createKpiReport(db:D1Store,actor:Actor,input:unknown,now=n
  if(!['admin','supervisor'].includes(actor.role))throw new HttpError('FORBIDDEN',403);
  const raw=z.object({idempotency_key:z.uuid(),entry:kpiEntrySchema}).parse(input),p=raw.entry;
  if(actor.role!=='admin'&&(p.report_date!==saudiDate(now)||(p.supervisor_id&&p.supervisor_id!==actor.id)))throw new HttpError('Supervisors must report today under their own name.',403);
+ if(p.waste_volume_m3)throw new HttpError('Use trip counts for new manual reports.');
  const supervisor=p.supervisor_id||actor.id;
  if(!await db.one("SELECT id FROM users WHERE dashboard='kpi' AND id=? AND role IN ('admin','supervisor') AND is_active=1 AND deleted_at IS NULL",supervisor))throw new HttpError('Choose an active reporting supervisor.');
  const existing=await db.one('SELECT id FROM kpi_daily_reports WHERE created_by=? AND idempotency_key=?',actor.id,raw.idempotency_key);if(existing)return {id:existing.id};
@@ -42,13 +43,16 @@ export async function updateKpiReport(db:D1Store,actor:Actor,input:unknown){
  const raw=z.object({id:z.uuid(),entry:kpiEntrySchema}).parse(input),p=raw.entry;
  const old=await db.one('SELECT * FROM kpi_daily_reports WHERE id=? AND project_id=? AND deleted_at IS NULL',raw.id,PROJECT.id);
  if(!old)throw new HttpError('Report unavailable.',404);
+ const directVolume=JSON.parse(old.import_metadata||'{}').volumeUnit==='m3';
+ if(p.waste_volume_m3&&!directVolume)throw new HttpError('This report uses trip counts.');
+ if(directVolume&&(p.metrics.dayna_trips||p.metrics.truck_trips))throw new HttpError('Imported volumes must remain in m³, not trips.');
  await validateForm(db,p,true);
  const supervisor=p.supervisor_id||old.supervisor_id;
  if(actor.role!=='admin'&&(old.supervisor_id!==actor.id||supervisor!==old.supervisor_id||p.report_date!==old.report_date))throw new HttpError('FORBIDDEN',403);
  if(supervisor!==old.supervisor_id&&!await db.one("SELECT id FROM users WHERE id=? AND role IN ('admin','supervisor') AND is_active=1 AND deleted_at IS NULL",supervisor))throw new HttpError('Choose an active reporting supervisor.');
  await db.write(actor,actor.role==='admin'?'admin':'submit',[
-  db.stmt('UPDATE kpi_daily_reports SET supervisor_id=?,report_date=?,location=?,metrics=?,notes=?,custom_fields=?,updated_by=?,updated_at=? WHERE id=?',supervisor,p.report_date,p.location||'—',JSON.stringify(p.metrics),p.notes,JSON.stringify(p.custom_fields),actor.id,new Date().toISOString(),raw.id),
-  db.audit(actor.id,'kpi',raw.id,'KPI_UPDATED',{old:{date:old.report_date,location:old.location,metrics:JSON.parse(old.metrics),custom_fields:JSON.parse(old.custom_fields||'{}')},new:{date:p.report_date,location:p.location,metrics:p.metrics,custom_fields:p.custom_fields}}),
+  db.stmt('UPDATE kpi_daily_reports SET supervisor_id=?,report_date=?,location=?,metrics=?,notes=?,custom_fields=?,dayna_m3=?,truck_m3=?,updated_by=?,updated_at=? WHERE id=?',supervisor,p.report_date,p.location||'—',JSON.stringify(p.metrics),p.notes,JSON.stringify(p.custom_fields),p.waste_volume_m3?.dayna??old.dayna_m3,p.waste_volume_m3?.truck??old.truck_m3,actor.id,new Date().toISOString(),raw.id),
+  db.audit(actor.id,'kpi',raw.id,'KPI_UPDATED',{old:{date:old.report_date,location:old.location,metrics:JSON.parse(old.metrics),custom_fields:JSON.parse(old.custom_fields||'{}'),waste_volume_m3:{dayna:old.dayna_m3,truck:old.truck_m3}},new:{date:p.report_date,location:p.location,metrics:p.metrics,custom_fields:p.custom_fields,waste_volume_m3:p.waste_volume_m3||{dayna:old.dayna_m3,truck:old.truck_m3}}}),
  ]);return {id:raw.id};
 }
 export async function deleteKpiReport(db:D1Store,actor:Actor,id:string){
