@@ -437,7 +437,7 @@ export default {
       await rejects(()=>deleteKpiReport(db,viewer,ka.id),"Viewer cannot delete KPI reports");
       await rejects(()=>db.stmt("DELETE FROM kpi_daily_reports WHERE id=?",ka.id).run(),"KPI audit history cannot be hard-deleted");
       assert(!kpiEntrySchema.safeParse({...kpiEntry,metrics:{tree_pruning:1.5}}).success&&!kpiEntrySchema.safeParse({...kpiEntry,metrics:{cleaned_area_ha:-1}}).success,"KPI validation rejects fractional trees and negative activity");
-      assert(!kpiEntrySchema.safeParse({...kpiEntry,metrics:{date_palm_pruning:20,tree_pruning:10}}).success,"Date Palm pruning breakdown cannot exceed all-tree total");
+      await rejects(()=>createKpiReport(db,admin,{idempotency_key:crypto.randomUUID(),entry:{...kpiEntry,metrics:{date_palm_pruning:20,tree_pruning:10}}}),"Date Palm pruning breakdown cannot exceed all-tree total");
       await deleteKpiReport(db,admin,ka.id);await deleteKpiReport(db,admin,secondKpi.id);
       assert((await readKpiReports(db,viewer)).reports.length===0&&!!(await db.one("SELECT deleted_at FROM kpi_daily_reports WHERE id=?",ka.id))?.deleted_at,"Admin KPI deletion removes progress while retaining audit history");
       assert(calculateDashboard((await readKpiReports(db,viewer)).reports,{mode:"project"},"2026-10-24").overall===0,"deleted KPI work recalculates to zero");
@@ -458,6 +458,17 @@ export default {
       await rejects(()=>saveKpiFormSettings(db,supervisor,{}),"Supervisor cannot edit form settings");
       await saveKpiFormSettings(db,admin,{trees_irrigated:{en:'Irrigated trees',ar:'الأشجار المروية',hintEn:'All trees',hintAr:'جميع الأشجار'}});
       assert((await readKpiReports(db,supervisor)).formSettings.trees_irrigated.ar==='الأشجار المروية',"Admin form translations persist and reach supervisors");
+
+      await rejects(()=>db.changeAccount(supervisor,{action:'user.name',id:other.id,full_name:'Forged rename'}),"Supervisor cannot rename another user");
+      await db.changeAccount(admin,{action:'user.name',id:other.id,full_name:'Updated Supervisor'});
+      assert((await db.accounts(admin)).some(u=>u.id===other.id&&u.full_name==='Updated Supervisor'),"Admin can rename Supervisor without changing account identity");
+      const customId='custom_test_field';
+      await saveKpiFormSettings(db,admin,{custom:[{id:customId,en:'Farm code',ar:'رمز المزرعة',required:true}],location:{en:'Location',ar:'الموقع',hintEn:'',hintAr:'',hidden:true}});
+      await rejects(()=>createKpiReport(db,admin,{idempotency_key:crypto.randomUUID(),entry:{...kpiEntry,location:''}}),"new required textbox is enforced server-side");
+      const customReport=await createKpiReport(db,admin,{idempotency_key:crypto.randomUUID(),entry:{...kpiEntry,location:'',custom_fields:{[customId]:'Farm 7'}}});
+      assert(((await readKpiReports(db,admin)).reports.find(r=>r.id===customReport.id)?.custom_fields as Record<string,string>)?.[customId]==='Farm 7',"custom textbox answers persist independently from numeric KPI metrics");
+      await saveKpiFormSettings(db,admin,{custom:[{id:customId,en:'Farm code',ar:'رمز المزرعة',required:true,hidden:true}]});
+      assert(((await readKpiReports(db,admin)).reports.find(r=>r.id===customReport.id)?.custom_fields as Record<string,string>)?.[customId]==='Farm 7',"removing textbox preserves historical answers");
       const oldToken = await db.login("082", "viewer-reset-fixture");
       await db.changeAccount(admin, {
         action: "user.pin",

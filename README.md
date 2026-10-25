@@ -122,3 +122,10 @@ Supervisors open directly into an inline daily form after KPI login. English/Ara
 Migration 0010 enforces one submission per Supervisor per Riyadh calendar day, including concurrent requests and reports later soft-deleted. Same-request retries remain idempotent. Submitted reports are read-only to Supervisors; corrections go through Admin in Daily Reports. Admin historical entry remains available. Existing reports are retained.
 
 Migration 0011 adds audited Admin-only form wording settings. The Admin Edit tab changes English/Arabic activity labels and instructions without changing metric keys, units or calculations. Changes reach forms on the next refresh; edit an already opened form only after saving or cancelling its draft.
+
+### Editable KPI form and daily-report filters
+Admin Edit can add up to 30 bilingual textboxes, mark additional fields required, remove fields from future forms, and restore removed fields. Removal retains the field definition and historical answers; existing numeric KPI quantities and calculations remain unchanged. New textboxes store additional text independently in custom_fields (migration 0012). Hidden standard KPI inputs are omitted from new forms, not removed from historical reports. Supervisor identity is fixed by authentication. Required custom answers are checked on the server.
+
+Supervisor forms start in Arabic on each opening, with an English switch. The automatic Riyadh reporting date appears in a compact form-title capsule. Admin Users & PINs supports audited name changes and the existing secure PIN-reset process. Shared account changes apply to Survey and KPI.
+
+Daily Reports loads every authorized report through paginated API reads, presents the newest submission first, and supports inclusive activity-date ranges, Supervisor filtering for Admin, search, and paginated display. Clearing filters restores the complete report list.

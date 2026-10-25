@@ -19,6 +19,7 @@ export default function AccessManagement({
     [loading, setLoading] = useState(true),
     [create, setCreate] = useState(false),
     [change, setChange] = useState<Row | null>(null),
+    [rename,setRename]=useState<Row|null>(null),
     [remove, setRemove] = useState<Row | null>(null),
     [revision, setRevision] = useState(0);
   useEffect(() => {
@@ -98,7 +99,7 @@ export default function AccessManagement({
               <span className={"status " + (u.is_active ? "good" : "bad")}>
                 {u.is_active ? "Active" : "Inactive"}
               </span>
-              <div className="account-actions">
+              <div className="account-actions"><Button variant="outline" size="sm" onClick={()=>{setRename(u);setError("");}}>Change name</Button>
                 <Button
                   variant="outline"
                   size="sm"
@@ -206,6 +207,7 @@ export default function AccessManagement({
           </form>
         </Modal>
       )}
+      {rename&&<Modal title="Change name" onClose={()=>setRename(null)}><form onSubmit={async e=>{e.preventDefault();setBusy(true);try{await api('user.name',{id:rename.id,full_name:new FormData(e.currentTarget).get('full_name')});setRename(null);refreshed();}catch(e){setError((e as Error).message);}finally{setBusy(false);}}}><label>Full name<input name="full_name" defaultValue={rename.full_name} required minLength={2} maxLength={100}/></label>{error&&<p role="alert" className="notice error">{error}</p>}<Button disabled={busy}>{busy?'Saving…':'Save name'}</Button></form></Modal>}
       {remove && (
         <Modal title="Remove this user?" onClose={() => setRemove(null)}>
           <p>

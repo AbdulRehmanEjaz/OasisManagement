@@ -212,7 +212,7 @@ export class D1Store {
   async changeAccount(actor: Actor, input: Data) {
     if (actor.role !== "admin") throw new HttpError("FORBIDDEN", 403);
     const action = z
-      .enum(["user.create", "user.pin", "user.toggle", "user.delete"])
+      .enum(["user.create", "user.pin", "user.name", "user.toggle", "user.delete"])
       .parse(input.action);
     if (action === "user.create") {
       const p = accountSchema.parse(input),
@@ -244,6 +244,7 @@ export class D1Store {
       ))
     )
       throw new HttpError("Account unavailable.", 404);
+    if(action === "user.name"){const full_name=z.string().trim().min(2).max(100).parse(input.full_name);await this.write(actor,"admin",[this.stmt("UPDATE users SET full_name=? WHERE id=? AND deleted_at IS NULL",full_name,id),this.audit(actor.id,"users",id,"USER_RENAMED",{full_name})]);return {ok:true};}
     const statement =
       action === "user.pin"
         ? this.stmt(

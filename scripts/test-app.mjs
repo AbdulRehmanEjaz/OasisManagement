@@ -174,7 +174,7 @@ try {
   check(r.status === 200, "PIN-only supervisor login");
   const kpiAdminPage=await request("/kpi",null,adminCookie);check(kpiAdminPage.status===200&&(await kpiAdminPage.text()).includes("ADVACON KPI Dashboard"),"existing Survey Admin session opens KPI dashboard");
   const kpiViewerPage=await request("/kpi",null,viewerCookie);check(kpiViewerPage.status===200&&(await kpiViewerPage.text()).replace(/<!--[\s\S]*?-->/g,"").includes("Viewer panel"),"existing Survey Viewer session opens read-only KPI panel");
-  const kpiSupervisorPage=await request("/kpi",null,supervisorCookie);check(kpiSupervisorPage.status===200&&(await kpiSupervisorPage.text()).includes("Submit Daily Report"),"Supervisor KPI panel provides daily report entry");
+  const kpiSupervisorPage=await request("/kpi",null,supervisorCookie);check(kpiSupervisorPage.status===200&&(await kpiSupervisorPage.text()).includes("إرسال التقرير اليومي"),"Supervisor KPI panel defaults to Arabic daily report entry");
   check((await request("/api/kpi",{action:"create"},viewerCookie)).status===403,"KPI Viewer cannot write through HTTP");
   const kpiEmpty=await (await request("/api/kpi",null,adminCookie)).json();check(kpiEmpty.reports.length===0,"KPI production Worker starts empty");
   const kpiKey=crypto.randomUUID(),kpiEntry={report_date:"2026-10-01",location:"Historical fixture farm",metrics:{trees_irrigated:500,compost_fertilization:20}};
