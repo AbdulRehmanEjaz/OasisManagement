@@ -14,9 +14,10 @@ export async function readKpiReports(db:D1Store,actor:Actor,cursor=''){
   const meta=JSON.parse(row.import_metadata||'{}');result.source=row.import_key?'excel':'manual';result.volume_unit=meta.volumeUnit==='m3'?'m3':'trips';result.dayna_m3=Number(row.dayna_m3||0);result.truck_m3=Number(row.truck_m3||0);result.import_metadata=actor.role==='viewer'?{time:meta.time,gps:meta.gps}:meta;
   return result as DailyKpiReport;
  });
- const submittedToday=actor.role==='supervisor'&&!!await db.one('SELECT id FROM kpi_daily_reports WHERE project_id=? AND supervisor_id=? AND report_date=?',PROJECT.id,actor.id,saudiDate());
+ const submittedToday=actor.role==='supervisor'&&await isDailySubmissionLocked(db,actor.id,saudiDate());
+ const dailyAccess=actor.role==='admin'?await db.all(`SELECT u.id supervisor_id,COUNT(r.id) submissions,COALESCE(a.allowed_reports,1) allowed_reports FROM users u LEFT JOIN kpi_daily_reports r ON r.supervisor_id=u.id AND r.project_id=? AND r.report_date=? LEFT JOIN kpi_daily_access a ON a.supervisor_id=u.id AND a.project_id=? AND a.report_date=? WHERE u.dashboard='kpi' AND u.role='supervisor' AND u.is_active=1 AND u.deleted_at IS NULL GROUP BY u.id`,PROJECT.id,saudiDate(),PROJECT.id,saudiDate()):undefined;
  const settings=await db.one("SELECT fields FROM kpi_form_settings WHERE id='daily'");
- return {reports,submittedToday,formSettings:settings?JSON.parse(settings.fields):{},nextCursor:more?selected[selected.length-1].id:null};
+ return {reports,submittedToday,dailyAccess,formSettings:settings?JSON.parse(settings.fields):{},nextCursor:more?selected[selected.length-1].id:null};
 }
 export async function createKpiReport(db:D1Store,actor:Actor,input:unknown,now=new Date()){
  if(db.dashboard!=="kpi"||actor.dashboard!=="kpi")throw new HttpError("FORBIDDEN",403);
@@ -27,7 +28,7 @@ export async function createKpiReport(db:D1Store,actor:Actor,input:unknown,now=n
  const supervisor=p.supervisor_id||actor.id;
  if(!await db.one("SELECT id FROM users WHERE dashboard='kpi' AND id=? AND role IN ('admin','supervisor') AND is_active=1 AND deleted_at IS NULL",supervisor))throw new HttpError('Choose an active reporting supervisor.');
  const existing=await db.one('SELECT id FROM kpi_daily_reports WHERE created_by=? AND idempotency_key=?',actor.id,raw.idempotency_key);if(existing)return {id:existing.id};
- if(actor.role==='supervisor'&&await db.one('SELECT id FROM kpi_daily_reports WHERE project_id=? AND supervisor_id=? AND report_date=?',PROJECT.id,supervisor,p.report_date))throw new HttpError('You have already submitted, please contact your Manager.',409);
+ if(actor.role==='supervisor'&&await isDailySubmissionLocked(db,supervisor,p.report_date))throw new HttpError('You have already submitted, please contact your Manager.',409);
  await validateForm(db,p);
  const id=crypto.randomUUID();
  try{await db.write(actor,actor.role==='admin'?'admin':'submit',[
@@ -80,4 +81,20 @@ async function validateForm(db:D1Store,p:z.infer<typeof kpiEntrySchema>,editing=
  if(!editing)for(const f of fields.custom||[])if(!f.hidden&&f.required&&!p.custom_fields[f.id]?.trim())throw new HttpError('Complete all required form fields.');
  const known=new Set((fields.custom||[]).map((f:{id:string})=>f.id));
  if(!editing&&Object.keys(p.custom_fields).some(k=>!known.has(k)))throw new HttpError('Form changed. Refresh and try again.');
+}
+
+async function isDailySubmissionLocked(db:D1Store,supervisor:string,date:string){
+ const row=await db.one('SELECT COUNT(*) submissions,COALESCE((SELECT allowed_reports FROM kpi_daily_access WHERE project_id=? AND supervisor_id=? AND report_date=?),1) allowed_reports FROM kpi_daily_reports WHERE project_id=? AND supervisor_id=? AND report_date=?',PROJECT.id,supervisor,date,PROJECT.id,supervisor,date);
+ return Number(row?.submissions)>=Number(row?.allowed_reports);
+}
+export async function unlockKpiDailySubmission(db:D1Store,actor:Actor,supervisorId:string){
+ if(db.dashboard!=='kpi'||actor.dashboard!=='kpi'||actor.role!=='admin')throw new HttpError('FORBIDDEN',403);
+ z.uuid().parse(supervisorId);const date=saudiDate();
+ if(date<PROJECT.start||date>PROJECT.end)throw new HttpError('Today is outside the project dates.');
+ if(!await db.one("SELECT id FROM users WHERE id=? AND dashboard='kpi' AND role='supervisor' AND is_active=1 AND deleted_at IS NULL",supervisorId))throw new HttpError('Choose an active KPI supervisor.',404);
+ if(!await isDailySubmissionLocked(db,supervisorId,date))return {unlocked:true,date};
+ await db.write(actor,'admin',[
+ db.stmt('INSERT INTO kpi_daily_access(project_id,supervisor_id,report_date,allowed_reports,unlocked_by,updated_at) SELECT ?,?,?,COUNT(*)+1,?,? FROM kpi_daily_reports WHERE project_id=? AND supervisor_id=? AND report_date=? ON CONFLICT(project_id,supervisor_id,report_date) DO UPDATE SET allowed_reports=MAX(kpi_daily_access.allowed_reports,excluded.allowed_reports),unlocked_by=excluded.unlocked_by,updated_at=excluded.updated_at',PROJECT.id,supervisorId,date,actor.id,new Date().toISOString(),PROJECT.id,supervisorId,date),
+ db.audit(actor.id,'kpi',supervisorId,'KPI_DAILY_UNLOCKED',{date}),
+ ]);return {unlocked:true,date};
 }
