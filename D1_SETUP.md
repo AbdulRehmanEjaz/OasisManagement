@@ -122,9 +122,7 @@ Sessions last at most eight hours. Only SHA-256 hashes of random 256-bit session
 tokens are stored. Production cookies use `__Host-`, Path=/, HttpOnly, Secure,
 SameSite=Strict and no Domain attribute. Each protected page/API checks active
 account, version, expiry and role; modifying transactions recheck the session.
-PIN login has persistent per-IP and per-PIN five-attempt/5-minute limits plus a
-60-attempt global bound. Success does not reset attempts. Keys contain HMACs,
-not raw IPs/PINs. Setup, uploads, admin changes and report actions are also bounded.
+PIN login has no attempt-count lockout, as requested. Existing login counters are ignored across Survey and KPI. Setup, uploads, admin changes and report actions retain their separate rate limits.
 
 D1 is not public PostgREST and has no RLS. Its binding is private to the Worker;
 explicit role checks and safe response projections replace RLS/RPCs. SQL values

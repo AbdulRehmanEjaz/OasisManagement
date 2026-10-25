@@ -498,13 +498,8 @@ export default {
           () => db.login("999", "rate-fixture"),
           "invalid login rejected",
         );
-      let limited = false;
-      try {
-        await db.login("071", "rate-fixture");
-      } catch (e) {
-        limited = (e as { status?: number }).status === 429;
-      }
-      assert(limited, "login rate limiting enforced");
+      for(const key of ['login-global','login-ip:'+db.fingerprint('rate-fixture'),'login-account:'+db.fingerprint('071')])await db.stmt('INSERT OR REPLACE INTO rate_limits(key,hits,expires_at) VALUES(?,?,?)',key,10000,Date.now()+300000).run();
+      for(let i=0;i<7;i++){const token=await db.login('071','rate-fixture');assert((await db.session(token)).id===admin.id,'valid login remains available after repeated attempts and old lockout counters');await db.logout(token);}
       const logoutToken = await db.login("071", "logout-fixture");
       await db.logout(logoutToken);
       await rejects(() => db.session(logoutToken), "logout revokes token");

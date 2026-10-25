@@ -77,10 +77,7 @@ export class D1Store {
   async login(pin: string, ip: string, now = Date.now()) {
     pinSchema.parse(pin);
     const fingerprint = this.fingerprint(pin);
-    // HMAC keys do not retain raw PINs or IP addresses. Success never clears failures.
-    await this.limit("login-global", 60, 300000, now);
-    await this.limit("login-ip:" + this.fingerprint(ip), 5, 300000, now);
-    await this.limit("login-account:" + fingerprint, 5, 300000, now);
+    // Shared dashboard login intentionally has no attempt-count lockout.
     const account = await this.one(
       "SELECT id,pin_hash,version FROM users WHERE pin_fingerprint=? AND is_active=1 AND deleted_at IS NULL",
       fingerprint,
