@@ -30,7 +30,7 @@ const amount=(value:unknown)=>typeof value==='number'&&Number.isFinite(value)&&v
 export function aggregateDailyReports(reports:DailyKpiReport[]){
  const operations=Object.fromEntries(ACTIVITY_FIELDS.map(f=>[f.key,0])) as Record<ActivityKey,number>;
  for(const report of uniqueProjectReports(reports))for(const f of ACTIVITY_FIELDS)operations[f.key]+=amount(report[f.key]);
- const totals:Totals={irrigation:operations.trees_irrigated,pruning:operations.tree_pruning,compost:operations.compost_fertilization,treeBase:operations.date_palm_basin_management+operations.tree_base_management,waste:operations.cleaned_area_ha};
+ const totals:Totals={irrigation:operations.trees_irrigated,pruning:operations.date_palm_pruning+operations.tree_pruning,compost:operations.compost_fertilization,treeBase:operations.date_palm_basin_management+operations.tree_base_management,waste:operations.cleaned_area_ha};
  const direct=uniqueProjectReports(reports).reduce((v,r)=>({dayna:v.dayna+amount(r.dayna_m3),truck:v.truck+amount(r.truck_m3)}),{dayna:0,truck:0});
  const daynaM3=operations.dayna_trips*3+direct.dayna,truckM3=operations.truck_trips*12+direct.truck;
  return {operations,totals,daynaM3,truckM3,wasteCollectionM3:daynaM3+truckM3};

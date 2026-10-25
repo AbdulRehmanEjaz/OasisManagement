@@ -440,7 +440,7 @@ export default {
       const kpiViewer=await readKpiReports(db,viewer);
       assert(kpiViewer.reports.length===2&&!JSON.stringify(kpiViewer).includes("supervisor_name")&&!JSON.stringify(kpiViewer).includes("supervisor_id"),"KPI Viewer sees reports without user identity details");
       const kpiMetrics=calculateDashboard(kpiViewer.reports,{mode:"project"},"2026-10-24");
-      assert(kpiMetrics.cumulative.totals.irrigation===5500&&kpiMetrics.cumulative.totals.pruning===10&&kpiMetrics.cumulative.totals.compost===80,"separate Supervisor reports combine and compost stays independent from pruning");
+      assert(kpiMetrics.cumulative.totals.irrigation===5500&&kpiMetrics.cumulative.totals.pruning===15&&kpiMetrics.cumulative.totals.compost===80,"separate Supervisor reports combine and compost stays independent from pruning");
       assert((await readKpiReports(db,supervisor)).reports.length===1,"KPI Supervisor sees only own reports");
       await rejects(()=>updateKpiReport(db,supervisor,{id:secondKpi.id,entry:kpiEntry}),"Supervisor cannot edit another user's KPI report");
       await rejects(()=>updateKpiReport(db,supervisor,{id:ka.id,entry:{...kpiEntry,report_date:"2026-10-02"}}),"Supervisor cannot change KPI activity date");
@@ -493,7 +493,7 @@ export default {
       const [importedA,importedB]=await Promise.all([importKpiReport(db,admin,importInput),importKpiReport(db,admin,{...importInput,fileName:'renamed.xlsx'})]);
       assert(importedA.id===importedB.id,'KPI import is idempotent across filenames and concurrent retries');
       const importedAfter=calculateDashboard((await readKpiReports(db,admin)).reports,{mode:'project'},'2026-10-25');
-      assert(importedAfter.cumulative.totals.irrigation-importedBefore.cumulative.totals.irrigation===200&&importedAfter.cumulative.totals.compost-importedBefore.cumulative.totals.compost===70,'historical imports update actual KPI totals without double counting');
+      assert(importedAfter.cumulative.totals.irrigation-importedBefore.cumulative.totals.irrigation===200&&importedAfter.cumulative.totals.compost-importedBefore.cumulative.totals.compost===70&&importedAfter.cumulative.totals.pruning-importedBefore.cumulative.totals.pruning===1094,'historical imports update actual KPI totals without double counting');
       assert(importedAfter.cumulative.wasteCollectionM3-importedBefore.cumulative.wasteCollectionM3===3,'imported m3 volumes are not multiplied by manual trip factors');
       const directImported=(await readKpiReports(db,admin)).reports.find(r=>r.id===importedA.id)!;assert(directImported.dayna_trips===0&&directImported.truck_trips===0&&directImported.dayna_m3===2&&directImported.truck_m3===1&&directImported.volume_unit==='m3','import volumes and manual trip counts have separate storage');
       const importedView=(await readKpiReports(db,viewer)).reports.find(r=>r.id===importedA.id)!;
