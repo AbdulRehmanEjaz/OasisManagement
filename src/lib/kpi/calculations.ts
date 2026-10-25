@@ -47,5 +47,15 @@ export function calculateDashboard(reports:DailyKpiReport[],filter:ReportingFilt
  const thisWeek=aggregateDailyReports(reportsInRange(eligible,week.start,[week.end,range.cutoff].sort()[0])).totals;
  const lastWeek=aggregateDailyReports(previous?reportsInRange(eligible,previous.start,[previous.end,range.cutoff].sort()[0]):[]).totals;
  const percentages=calculateKpiPercentages(cumulative.totals),main=calculateMainKpis(percentages);
- return {range,period,cumulative,week,previous,thisWeek,lastWeek,percentages,main,overall:calculateOverallCompletion(main),remaining:calculateRemainingWork(cumulative.totals),irrigationGauge:filter.mode==='weekly'?period.totals.irrigation/PROJECT.weeklyIrrigationTarget*100:percentages.irrigation,reportCount:reportsInRange(eligible,range.start,[range.end,range.cutoff].sort()[0]).length};
+ return {range,period,cumulative,week,previous,thisWeek,lastWeek,percentages,periodPercentages:calculateKpiPercentages(period.totals),main,overall:calculateOverallCompletion(main),remaining:calculateRemainingWork(cumulative.totals),irrigationGauge:filter.mode==='weekly'?period.totals.irrigation/PROJECT.weeklyIrrigationTarget*100:percentages.irrigation,reportCount:reportsInRange(eligible,range.start,[range.end,range.cutoff].sort()[0]).length};
+}
+
+export function switchReportingMode(filter:ReportingFilter,mode:ReportingMode,today=saudiDate()):ReportingFilter{
+ const range=reportingRange(filter,today),anchor=filter.date&&validDate(filter.date)&&filter.date>=range.start&&filter.date<=range.end?filter.date:range.end<today?range.end:range.start>today?range.start:today;
+ const selected=projectDate(anchor);
+ return {...filter,mode,date:selected,week:getProjectWeek(selected)!.id,month:selected.slice(0,7)};
+}
+export function sortKpiReports(reports:DailyKpiReport[],order:'activity'|'upload'='activity'){
+ const time=(r:DailyKpiReport)=>String((r.import_metadata as {time?:string}|undefined)?.time||'');
+ return [...reports].sort((a,b)=>(order==='activity'?b.report_date.localeCompare(a.report_date)||time(b).localeCompare(time(a)):0)||String(b.created_at||'').localeCompare(String(a.created_at||''))||b.id.localeCompare(a.id));
 }

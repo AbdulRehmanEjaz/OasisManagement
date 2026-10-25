@@ -144,3 +144,6 @@ Migration 0014 adds KPI-only import provenance and unique import keys. Identical
 
 ### Direct m³ Excel imports
 Migration 0015 stores imported Dyana and Truck cubic metres in separate dayna_m3/truck_m3 columns. Imported trip-count fields are zero; manual report trip counts continue to convert at 3/12 m³ exactly once. Aggregation adds direct volumes and converted manual trips. Admin editing and report details retain the source units. Excel previews/templates explicitly state direct m³, accept decimal volumes, and use unit-aware import identities. Existing deleted legacy-trip imports do not block deliberate direct-m³ re-imports.
+
+### Activity-date reporting
+Daily, configured project-week, calendar-month and custom views group records by report_date from the activity/Excel Date field, never created_at (upload time). Selected-period scorecards display only that period's quantities and contribution to project targets; the weekly irrigation target remains 64,000. Overall project completion and remaining work remain explicitly cumulative through the selected cutoff. Changing views follows the selected historical date/week/month. Daily Reports defaults to activity date descending, then original Excel time; upload-date order remains available as a separate sort choice.
