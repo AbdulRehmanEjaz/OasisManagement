@@ -451,7 +451,7 @@ export default {
       await rejects(()=>deleteKpiReport(db,viewer,ka.id),"Viewer cannot delete KPI reports");
       await rejects(()=>db.stmt("DELETE FROM kpi_daily_reports WHERE id=?",ka.id).run(),"KPI audit history cannot be hard-deleted");
       assert(!kpiEntrySchema.safeParse({...kpiEntry,metrics:{tree_pruning:1.5}}).success&&!kpiEntrySchema.safeParse({...kpiEntry,metrics:{cleaned_area_ha:-1}}).success,"KPI validation rejects fractional trees and negative activity");
-      await rejects(()=>createKpiReport(db,admin,{idempotency_key:crypto.randomUUID(),entry:{...kpiEntry,metrics:{date_palm_pruning:20,tree_pruning:10}}}),"Date Palm pruning breakdown cannot exceed all-tree total");
+      const independent=await createKpiReport(db,admin,{idempotency_key:crypto.randomUUID(),entry:{...kpiEntry,metrics:{date_palm_pruning:1094,tree_pruning:0}}});assert(!!independent.id,"manual form accepts independent quantities when palm pruning exceeds other tree pruning");await deleteKpiReport(db,admin,independent.id);
       await deleteKpiReport(db,admin,ka.id);await deleteKpiReport(db,admin,secondKpi.id);
       assert((await readKpiReports(db,viewer)).reports.length===0&&!!(await db.one("SELECT deleted_at FROM kpi_daily_reports WHERE id=?",ka.id))?.deleted_at,"Admin KPI deletion removes progress while retaining audit history");
       assert(calculateDashboard((await readKpiReports(db,viewer)).reports,{mode:"project"},"2026-10-24").overall===0,"deleted KPI work recalculates to zero");
@@ -484,7 +484,7 @@ export default {
       await saveKpiFormSettings(db,admin,{custom:[{id:customId,en:'Farm code',ar:'رمز المزرعة',required:true,hidden:true}]});
       assert(((await readKpiReports(db,admin)).reports.find(r=>r.id===customReport.id)?.custom_fields as Record<string,string>)?.[customId]==='Farm 7',"removing textbox preserves historical answers");
 
-      const importEntry={row:2,date:'2026-10-05',dateRaw:'05/10/2026',time:'09:30:00',supervisor:'old-id',supervisorName:'بلال خان',location:'المزرعة الشمالية',gps:'٢٦٫٥، ٣٧٫٩',notes:'تقرير قديم',metrics:kpiEntrySchema.parse({...kpiEntry,metrics:{trees_irrigated:200,tree_pruning:30,compost_fertilization:70,dayna_trips:2,truck_trips:1}}).metrics};
+      const importEntry={row:2,date:'2026-10-05',dateRaw:'05/10/2026',time:'09:30:00',supervisor:'old-id',supervisorName:'بلال خان',location:'المزرعة الشمالية',gps:'٢٦٫٥، ٣٧٫٩',notes:'تقرير قديم',metrics:kpiEntrySchema.parse({...kpiEntry,metrics:{trees_irrigated:200,date_palm_pruning:1094,tree_pruning:0,compost_fertilization:70,dayna_trips:2,truck_trips:1}}).metrics};
       const importInput={row:importEntry,supervisor_id:supervisor.id,fileName:'تقرير.xlsx'};
       await rejects(()=>importKpiReport(surveyDB,surveyAdmin,importInput),'Survey Admin cannot import KPI data');
       await rejects(()=>importKpiReport(db,viewer,importInput),'KPI Viewer cannot import historical data');

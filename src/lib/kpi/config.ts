@@ -32,8 +32,8 @@ export type DailyKpiReport = {id:string;project_id:string;report_date:string;upd
 export const REPORTING_MODES = [{id:'daily',label:'Daily Progress'},{id:'weekly',label:'Weekly Progress'},{id:'monthly',label:'Monthly Progress'},{id:'project',label:'Full Project Progress'},{id:'custom',label:'Custom Period Progress'}] as const;
 export type ReportingMode=typeof REPORTING_MODES[number]['id'];
 export const FIELD_HINTS: Partial<Record<ActivityKey,string>> = {
- date_palm_pruning: 'Date palms only: a breakdown already included in the all-tree pruning total below.',
- tree_pruning: 'ALL pruned trees: date palms + native + fruit trees. Do not add date palms twice.',
+ date_palm_pruning: 'Date palm pruning quantity. Enter independently of other activity quantities.',
+ tree_pruning: 'Pruning quantity. Enter independently of other activity quantities.',
  compost_fertilization: 'ALL trees composted: date palms + native + fruit trees. Independent of pruning.',
  date_palm_basin_management: 'Date palm trees only; counted separately from other tree bases.',
  tree_base_management: 'Other/native/fruit tree bases only; exclude date palms entered above.',

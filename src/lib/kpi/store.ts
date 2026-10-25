@@ -72,7 +72,6 @@ export async function saveKpiFormSettings(db:D1Store,actor:Actor,input:unknown){
 async function validateForm(db:D1Store,p:z.infer<typeof kpiEntrySchema>,editing=false){
  const row=await db.one("SELECT fields FROM kpi_form_settings WHERE id='daily'");
  const fields=JSON.parse(row?.fields||'{}');
- if(!fields.tree_pruning?.hidden&&!fields.date_palm_pruning?.hidden&&p.metrics.date_palm_pruning>p.metrics.tree_pruning)throw new HttpError('Date Palm Pruning cannot exceed the all-tree pruning total.');
  if(!fields.location?.hidden&&!p.location.trim())throw new HttpError('Location is required.');
  if(!editing)for(const f of fields.custom||[])if(!f.hidden&&f.required&&!p.custom_fields[f.id]?.trim())throw new HttpError('Complete all required form fields.');
  const known=new Set((fields.custom||[]).map((f:{id:string})=>f.id));

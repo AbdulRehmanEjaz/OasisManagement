@@ -7,7 +7,6 @@ export const kpiImportRowSchema=z.object({row:z.number().int().min(2).max(104857
 export async function importKpiReport(db:D1Store,actor:Actor,input:unknown){
  if(actor.dashboard!=='kpi'||db.dashboard!=='kpi'||actor.role!=='admin')throw new HttpError('FORBIDDEN',403);
  const raw=z.object({row:kpiImportRowSchema,supervisor_id:z.uuid(),fileName:z.string().max(150)}).strict().parse(input),r=raw.row;
- if(r.metrics.date_palm_pruning>r.metrics.tree_pruning)throw new HttpError('Date Palm Pruning cannot exceed the all-tree pruning total.');
  if(!await db.one("SELECT id FROM users WHERE id=? AND dashboard='kpi' AND role IN('admin','supervisor') AND is_active=1 AND deleted_at IS NULL",raw.supervisor_id))throw new HttpError('Select an active KPI supervisor for this row.');
  const identityData={project:PROJECT.id,supervisor:raw.supervisor_id,date:r.date,time:r.time,location:r.location,gps:r.gps};
  const canonical=JSON.stringify({...identityData,metrics:r.metrics,notes:r.notes});
