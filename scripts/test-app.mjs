@@ -199,6 +199,24 @@ try {
   check((await request("/api/kpi",{action:"delete",id:kpiRecord.id},kpiAdminCookie,{origin:"https://evil.example"})).status===403,"KPI edits reject cross-origin requests");
   check((await request("/api/kpi",{action:"delete",id:kpiRecord.id},kpiAdminCookie)).status===200,"Admin KPI deletion succeeds");
   check((await (await request("/api/kpi",null,kpiAdminCookie)).json()).reports.length===0,"KPI API reflects deletion immediately");
+
+  check((await request('/api/kpi/import',null,adminCookie)).status===401,'Survey Admin cannot download KPI import template');
+  check((await request('/api/kpi/import',null,kpiViewerCookie)).status===403,'KPI Viewer cannot download Admin import template');
+  check((await request('/api/kpi/import',{rows:[]},kpiSupervisorCookie)).status===403,'KPI Supervisor cannot bulk import');
+  const kpiTemplate=await request('/api/kpi/import',null,kpiAdminCookie);check(kpiTemplate.status===200,'KPI Admin downloads bilingual XLSX template');
+  const kpiWorkbook=unzipSync(new Uint8Array(await kpiTemplate.arrayBuffer())),sheetPath='xl/worksheets/sheet1.xml';
+  const originalSheet=strFromU8(kpiWorkbook[sheetPath]),headerRow=originalSheet.match(/<row r="1"[\s\S]*?<\/row>/)[0];
+  const importValues=['2026-10-05','09:30','old-supervisor','٢٦٫٥، ٣٧٫٩','Fixture supervisor','المزرعة الشمالية','١','٢','١٠٠','0','0','5','20','0','0','0','٠٫٥','2','1','0','تقرير قديم'];
+  const importCells=importValues.map((v,i)=>'<c r="'+String.fromCharCode(65+i)+'2" t="inlineStr"><is><t>'+v+'</t></is></c>').join('');
+  kpiWorkbook[sheetPath]=strToU8(originalSheet.replace(/<sheetData>[\s\S]*?<\/sheetData>/,'<sheetData>'+headerRow+'<row r="2">'+importCells+'</row></sheetData>'));
+  const binaryPreview=await fetch(origin+'/api/kpi/import',{method:'POST',headers:{origin,cookie:kpiAdminCookie,'Content-Type':'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'},body:Buffer.from(zipSync(kpiWorkbook))});
+  const previewData=await binaryPreview.json();check(binaryPreview.status===200&&previewData.rows[0].metrics.trees_irrigated===100&&previewData.rows[0].suggestedSupervisorId,'Arabic workbook preview validates values and maps only KPI supervisors');
+  const {suggestedSupervisorId,...previewRow}=previewData.rows[0],importPayload={rows:[{row:previewRow,supervisor_id:suggestedSupervisorId,fileName:'قديم.xlsx'}]};
+  const importResponse=await request('/api/kpi/import',importPayload,kpiAdminCookie),importResult=await importResponse.json();check(importResponse.status===200&&importResult.results[0].id&&!importResult.results[0].error,'KPI historical Excel import succeeds through authenticated HTTP');
+  const repeatResult=await (await request('/api/kpi/import',importPayload,kpiAdminCookie)).json();check(repeatResult.results[0].skipped,'reimporting same historical row is skipped');
+  const importedRows=await (await request('/api/kpi',null,kpiAdminCookie)).json();check(importedRows.reports.length===1&&importedRows.reports[0].source==='excel'&&importedRows.reports[0].import_metadata.gps==='٢٦٫٥، ٣٧٫٩','imported Arabic metadata is retained in KPI reports');
+  check((await request('/api/kpi/import',importPayload,kpiAdminCookie,{origin:'https://evil.example'})).status===403,'KPI import rejects cross-origin writes');
+  await request('/api/kpi',{action:'delete',id:importResult.results[0].id},kpiAdminCookie);
   for(const cookie of [viewerCookie,supervisorCookie])check((await request("/api/operations",{action:"record.location.update",type:"waste",id:crypto.randomUUID(),latitude:26,longitude:37},cookie)).status===403,"non-Admin cannot change report location through HTTP");
   check((await request("/api/report-import?kind=waste",null,viewerCookie)).status===403,"viewer cannot access import templates");
   check((await request("/api/report-import?kind=inspection",{},supervisorCookie)).status===403,"supervisor cannot bulk import");

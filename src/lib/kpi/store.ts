@@ -11,6 +11,7 @@ export async function readKpiReports(db:D1Store,actor:Actor,cursor=''){
  const reports=selected.map(row=>{
   const result:Data={...JSON.parse(row.metrics),id:row.id,project_id:row.project_id,report_date:row.report_date,location:row.location,notes:row.notes,custom_fields:JSON.parse(row.custom_fields||'{}'),created_at:row.created_at,updated_at:row.updated_at};
   if(actor.role!=='viewer'){result.supervisor_id=row.supervisor_id;result.supervisor_name=row.supervisor_name;}
+  const meta=JSON.parse(row.import_metadata||'{}');result.source=row.import_key?'excel':'manual';result.import_metadata=actor.role==='viewer'?{time:meta.time,gps:meta.gps}:meta;
   return result as DailyKpiReport;
  });
  const submittedToday=actor.role==='supervisor'&&!!await db.one('SELECT id FROM kpi_daily_reports WHERE project_id=? AND supervisor_id=? AND report_date=?',PROJECT.id,actor.id,saudiDate());

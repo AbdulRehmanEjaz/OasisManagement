@@ -1,3 +1,4 @@
+import {importKpiReport} from '../../src/lib/kpi/import-store';
 import {saveKpiFormSettings,createKpiReport,readKpiReports,updateKpiReport,deleteKpiReport,kpiEntrySchema} from "../../src/lib/kpi/store";
 import {calculateDashboard,saudiDate} from "../../src/lib/kpi/calculations";
 import {PROJECT} from "../../src/lib/kpi/config";
@@ -482,6 +483,26 @@ export default {
       assert(((await readKpiReports(db,admin)).reports.find(r=>r.id===customReport.id)?.custom_fields as Record<string,string>)?.[customId]==='Farm 7',"custom textbox answers persist independently from numeric KPI metrics");
       await saveKpiFormSettings(db,admin,{custom:[{id:customId,en:'Farm code',ar:'رمز المزرعة',required:true,hidden:true}]});
       assert(((await readKpiReports(db,admin)).reports.find(r=>r.id===customReport.id)?.custom_fields as Record<string,string>)?.[customId]==='Farm 7',"removing textbox preserves historical answers");
+
+      const importEntry={row:2,date:'2026-10-05',dateRaw:'05/10/2026',time:'09:30:00',supervisor:'old-id',supervisorName:'بلال خان',location:'المزرعة الشمالية',gps:'٢٦٫٥، ٣٧٫٩',notes:'تقرير قديم',metrics:kpiEntrySchema.parse({...kpiEntry,metrics:{trees_irrigated:200,tree_pruning:30,compost_fertilization:70,dayna_trips:2,truck_trips:1}}).metrics};
+      const importInput={row:importEntry,supervisor_id:supervisor.id,fileName:'تقرير.xlsx'};
+      await rejects(()=>importKpiReport(surveyDB,surveyAdmin,importInput),'Survey Admin cannot import KPI data');
+      await rejects(()=>importKpiReport(db,viewer,importInput),'KPI Viewer cannot import historical data');
+      await rejects(()=>importKpiReport(db,supervisor,importInput),'KPI Supervisor cannot use Admin historical import');
+      const importedBefore=calculateDashboard((await readKpiReports(db,admin)).reports,{mode:'project'},'2026-10-25');
+      const [importedA,importedB]=await Promise.all([importKpiReport(db,admin,importInput),importKpiReport(db,admin,{...importInput,fileName:'renamed.xlsx'})]);
+      assert(importedA.id===importedB.id,'KPI import is idempotent across filenames and concurrent retries');
+      const importedAfter=calculateDashboard((await readKpiReports(db,admin)).reports,{mode:'project'},'2026-10-25');
+      assert(importedAfter.cumulative.totals.irrigation-importedBefore.cumulative.totals.irrigation===200&&importedAfter.cumulative.totals.compost-importedBefore.cumulative.totals.compost===70,'historical imports update actual KPI totals without double counting');
+      assert(importedAfter.cumulative.wasteCollectionM3-importedBefore.cumulative.wasteCollectionM3===18,'imported trips convert to Dyana 3 m3 and Truck 12 m3');
+      const importedView=(await readKpiReports(db,viewer)).reports.find(r=>r.id===importedA.id)!;
+      assert((importedView.import_metadata as any).gps===importEntry.gps&&!(importedView.import_metadata as any).supervisorName,'Excel GPS is preserved while Viewer account identity privacy remains enforced');
+      await rejects(()=>importKpiReport(db,admin,{...importInput,row:{...importEntry,metrics:{...importEntry.metrics,trees_irrigated:300}}}),'conflicting values for existing historical identity never overwrite or duplicate it');
+      const secondHistorical=await importKpiReport(db,admin,{...importInput,row:{...importEntry,time:'11:30:00'}});
+      assert(secondHistorical.id!==importedA.id,'distinct historical submissions on same date remain separate');
+      await rejects(()=>importKpiReport(db,admin,{...importInput,supervisor_id:surveyAdmin.id}),'import cannot assign reports to Survey accounts');
+      await deleteKpiReport(db,admin,importedA.id);const archivedRetry=await importKpiReport(db,admin,importInput);
+      assert(archivedRetry.skipped&&archivedRetry.deleted,'retry does not resurrect an Admin-deleted import');
       await db.changeAccount(admin,{action:'user.pin',id:other.id,pin:'055'});
       assert((await surveyDB.session(await surveyDB.login('054','survey-unchanged'))).role==='supervisor','KPI PIN reset does not change Survey PIN');
       await rejects(()=>db.session(otherToken),'old KPI session is not usable after its account reset');
