@@ -119,7 +119,7 @@ not verify your cloud credentials, email domain or hardware GPS accuracy.
 ## Security and operational details
 
 Sessions last at most eight hours. Only SHA-256 hashes of random 256-bit session
-tokens are stored. Production cookies use `__Host-`, Path=/, HttpOnly, Secure,
+tokens are stored. Production cookies use separate `__Host-survey-session` and `__Host-kpi-session` names, Path=/, HttpOnly, Secure,
 SameSite=Strict and no Domain attribute. Each protected page/API checks active
 account, version, expiry and role; modifying transactions recheck the session.
 PIN login has no attempt-count lockout, as requested. Existing login counters are ignored across Survey and KPI. Setup, uploads, admin changes and report actions retain their separate rate limits.

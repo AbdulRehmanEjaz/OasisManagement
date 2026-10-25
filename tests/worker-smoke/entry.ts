@@ -414,6 +414,19 @@ export default {
       assert((await db.one("SELECT count(*) n FROM delivery_attempts WHERE record_id=?",facilityImport.id))?.n===0,"bulk imports do not queue unwanted emails");
       await deleteRecord(db,admin,{type:"waste",id:imported.id});
       await deleteRecord(db,admin,{type:"inspections",id:facilityImport.id});
+      const surveyDB=db,surveyAdmin=admin;
+      {
+      const db=new D1Store((env as unknown as {DB:D1Database}).DB,'isolated-test-secret-not-a-production-secret','kpi');
+      await db.bootstrap({full_name:'KPI Admin',role:'admin',pin:'071',viewer_pin:'082',supervisor_pin:'063'},setup,setup);
+      const adminToken=await db.login('071','kpi-admin'),admin=await db.session(adminToken),viewer=await db.session(await db.login('082','kpi-viewer')),supervisor=await db.session(await db.login('063','kpi-supervisor'));
+      await db.changeAccount(admin,{action:'user.create',full_name:'Other KPI Supervisor',role:'supervisor',pin:'054'});
+      const otherToken=await db.login('054','kpi-other'),other=await db.session(otherToken);
+      await rejects(()=>surveyDB.session(adminToken),'KPI session cannot authenticate Survey');
+      await rejects(async()=>db.session(await surveyDB.login('071','survey-session')),'Survey session cannot authenticate KPI');
+      await rejects(()=>db.changeAccount(admin,{action:'user.name',id:surveyAdmin.id,full_name:'Cross dashboard'}),'KPI Admin cannot modify a Survey account');
+      await rejects(()=>surveyDB.accounts(admin),'KPI Admin cannot read Survey users');
+      await rejects(()=>readRecords(surveyDB,admin,'waste',new URLSearchParams()),'KPI actor cannot read Survey data');
+      assert((await db.accounts(admin)).every(u=>u.id!==surveyAdmin.id),'KPI directory contains only KPI accounts');
       assert((await readKpiReports(db,admin)).reports.length===0,"KPI project starts with zero reports and no seeded progress");
       const kpiEntry={report_date:"2026-10-01",location:"North farm",notes:"Historical manual entry",supervisor_id:supervisor.id,metrics:{trees_irrigated:2500,date_palm_pruning:5,tree_pruning:10,compost_fertilization:0,cleaned_area_ha:0.25}};
       const createInput={idempotency_key:crypto.randomUUID(),entry:kpiEntry};
@@ -469,6 +482,15 @@ export default {
       assert(((await readKpiReports(db,admin)).reports.find(r=>r.id===customReport.id)?.custom_fields as Record<string,string>)?.[customId]==='Farm 7',"custom textbox answers persist independently from numeric KPI metrics");
       await saveKpiFormSettings(db,admin,{custom:[{id:customId,en:'Farm code',ar:'رمز المزرعة',required:true,hidden:true}]});
       assert(((await readKpiReports(db,admin)).reports.find(r=>r.id===customReport.id)?.custom_fields as Record<string,string>)?.[customId]==='Farm 7',"removing textbox preserves historical answers");
+      await db.changeAccount(admin,{action:'user.pin',id:other.id,pin:'055'});
+      assert((await surveyDB.session(await surveyDB.login('054','survey-unchanged'))).role==='supervisor','KPI PIN reset does not change Survey PIN');
+      await rejects(()=>db.session(otherToken),'old KPI session is not usable after its account reset');
+      await db.changeAccount(admin,{action:'user.toggle',id:viewer.id,is_active:false});
+      assert((await surveyDB.session(await surveyDB.login('082','survey-viewer-unchanged'))).role==='viewer','KPI deactivation does not deactivate Survey viewer');
+      await rejects(()=>db.write(admin,'admin',[db.stmt('UPDATE users SET is_active=0 WHERE id=?',admin.id)]),'last KPI Admin protected independently from Survey Admin');
+      const hrDB=new D1Store((env as unknown as {DB:D1Database}).DB,'isolated-test-secret-not-a-production-secret','hr');
+      await rejects(()=>hrDB.session(adminToken),'KPI session cannot authenticate future HR dashboard');
+      }
       const oldToken = await db.login("082", "viewer-reset-fixture");
       await db.changeAccount(admin, {
         action: "user.pin",

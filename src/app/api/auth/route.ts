@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { cookies } from "next/headers";
 import { z } from "zod";
-import { store, sessionCookie } from "@/lib/backend";
+import { store, cookieFor } from "@/lib/backend";
 import { isSameOrigin } from "@/lib/request-security";
 import { json, failure } from "@/lib/http";
 import { HttpError, pinSchema } from "@/lib/d1-store";
@@ -9,7 +9,9 @@ export async function POST(req: NextRequest) {
   try {
     if (!isSameOrigin(req)) throw new HttpError("FORBIDDEN", 403);
     const input = await req.json(),
-      db = await store(),
+      dashboard=z.enum(["survey","kpi","hr"]).parse(input.dashboard||"survey"),
+      sessionCookie=cookieFor(dashboard),
+      db = await store(dashboard),
       jar = await cookies();
     if (input.action === "logout") {
       await db.logout(jar.get(sessionCookie)?.value || "");

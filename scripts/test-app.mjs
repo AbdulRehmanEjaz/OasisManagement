@@ -110,7 +110,7 @@ try {
     adminCookie = header.split(";")[0];
   check(
     r.status === 200 &&
-      header.includes("__Host-oasis-session=") &&
+      header.includes("__Host-survey-session=") &&
       /httponly/i.test(header) &&
       /secure/i.test(header) &&
       /samesite=strict/i.test(header) &&
@@ -172,21 +172,33 @@ try {
   r = await request("/api/auth", { action: "login", pin: "765" });
   const supervisorCookie = (r.headers.get("set-cookie") || "").split(";")[0];
   check(r.status === 200, "PIN-only supervisor login");
-  const kpiAdminPage=await request("/kpi",null,adminCookie);check(kpiAdminPage.status===200&&(await kpiAdminPage.text()).includes("ADVACON KPI Dashboard"),"existing Survey Admin session opens KPI dashboard");
-  const kpiViewerPage=await request("/kpi",null,viewerCookie);check(kpiViewerPage.status===200&&(await kpiViewerPage.text()).replace(/<!--[\s\S]*?-->/g,"").includes("Viewer panel"),"existing Survey Viewer session opens read-only KPI panel");
-  const kpiSupervisorPage=await request("/kpi",null,supervisorCookie);check(kpiSupervisorPage.status===200&&(await kpiSupervisorPage.text()).includes("إرسال التقرير اليومي"),"Supervisor KPI panel defaults to Arabic daily report entry");
-  check((await request("/api/kpi",{action:"create"},viewerCookie)).status===403,"KPI Viewer cannot write through HTTP");
-  const kpiEmpty=await (await request("/api/kpi",null,adminCookie)).json();check(kpiEmpty.reports.length===0,"KPI production Worker starts empty");
+
+  check((await request('/kpi',null,adminCookie)).status===307,'Survey session cannot open KPI dashboard');
+  check((await request('/api/kpi',null,adminCookie)).status===401,'Survey session cannot read KPI API');
+  const seedKpi=spawnSync(process.execPath,['node_modules/wrangler/wrangler-dist/cli.js','d1','execute','DB','--local','--config','wrangler.jsonc','--persist-to',state,'--command',"INSERT INTO users(id,full_name,role,pin_hash,pin_fingerprint,is_active,version,dashboard) SELECT lower(hex(randomblob(4))||'-'||hex(randomblob(2))||'-4'||substr(hex(randomblob(2)),2)||'-8'||substr(hex(randomblob(2)),2)||'-'||hex(randomblob(6))),full_name,role,pin_hash,'kpi:'||substr(pin_fingerprint,8),is_active,version,'kpi' FROM users WHERE dashboard='survey';"],{encoding:'utf8',env:{...process.env,CI:'true'}});
+  assert.equal(seedKpi.status,0,seedKpi.stderr);
+  const kpiLoginAs=async pin=>{const r=await request('/api/auth',{action:'login',dashboard:'kpi',pin});check(r.status===200,'KPI PIN login uses independent account');return (r.headers.get('set-cookie')||'').split(';')[0];};
+  const kpiAdminCookie=await kpiLoginAs('987'),kpiViewerCookie=await kpiLoginAs('876'),kpiSupervisorCookie=await kpiLoginAs('765');
+  check((await request('/api/operations?type=waste',null,kpiAdminCookie)).status===401,'KPI session cannot access Survey data');
+  check((await request('/api/access?dashboard=survey',null,kpiAdminCookie)).status===401,'KPI session cannot list Survey accounts');
+  check((await request('/api/access?dashboard=kpi',null,adminCookie)).status===401,'Survey session cannot list KPI accounts');
+  const borrowedCookie=kpiAdminCookie.split('=')[0]+'='+adminCookie.split('=')[1];
+  check((await request('/api/kpi',null,borrowedCookie)).status===401,'renaming a Survey cookie does not bypass dashboard session checks');
+  const kpiAdminPage=await request("/kpi",null,kpiAdminCookie);check(kpiAdminPage.status===200&&(await kpiAdminPage.text()).includes("ADVACON KPI Dashboard"),"independent KPI Admin session opens KPI dashboard");
+  const kpiViewerPage=await request("/kpi",null,kpiViewerCookie);check(kpiViewerPage.status===200&&(await kpiViewerPage.text()).replace(/<!--[\s\S]*?-->/g,"").includes("Viewer panel"),"independent KPI Viewer opens read-only KPI panel");
+  const kpiSupervisorPage=await request("/kpi",null,kpiSupervisorCookie);check(kpiSupervisorPage.status===200&&(await kpiSupervisorPage.text()).includes("إرسال التقرير اليومي"),"Supervisor KPI panel defaults to Arabic daily report entry");
+  check((await request("/api/kpi",{action:"create"},kpiViewerCookie)).status===403,"KPI Viewer cannot write through HTTP");
+  const kpiEmpty=await (await request("/api/kpi",null,kpiAdminCookie)).json();check(kpiEmpty.reports.length===0,"KPI production Worker starts empty");
   const kpiKey=crypto.randomUUID(),kpiEntry={report_date:"2026-10-01",location:"Historical fixture farm",metrics:{trees_irrigated:500,compost_fertilization:20}};
-  const kpiCreated=await request("/api/kpi",{action:"create",idempotency_key:kpiKey,entry:kpiEntry},adminCookie);const kpiRecord=await kpiCreated.json();check(kpiCreated.status===200,"Admin enters historical daily KPI data through HTTP");
-  const kpiDuplicate=await (await request("/api/kpi",{action:"create",idempotency_key:kpiKey,entry:kpiEntry},adminCookie)).json();check(kpiDuplicate.id===kpiRecord.id,"HTTP KPI double submit creates one record");
-  const kpiVisible=await (await request("/api/kpi",null,viewerCookie)).json();check(kpiVisible.reports.length===1&&kpiVisible.reports[0].compost_fertilization===20&&!JSON.stringify(kpiVisible).includes("supervisor_id"),"Viewer reads actual independent KPI quantities without identities");
-  check((await request("/api/kpi",{action:"create",idempotency_key:crypto.randomUUID(),entry:kpiEntry},supervisorCookie)).status===403,"Supervisor KPI historical entry is blocked");
-  check((await request("/api/kpi",{action:"delete",id:kpiRecord.id},supervisorCookie)).status===403,"Supervisor KPI delete is blocked");
-  check((await request("/api/kpi",{action:"create",idempotency_key:crypto.randomUUID(),entry:{...kpiEntry,metrics:{compost_fertilization:-2}}},adminCookie)).status===400,"negative KPI activity is rejected");
-  check((await request("/api/kpi",{action:"delete",id:kpiRecord.id},adminCookie,{origin:"https://evil.example"})).status===403,"KPI edits reject cross-origin requests");
-  check((await request("/api/kpi",{action:"delete",id:kpiRecord.id},adminCookie)).status===200,"Admin KPI deletion succeeds");
-  check((await (await request("/api/kpi",null,adminCookie)).json()).reports.length===0,"KPI API reflects deletion immediately");
+  const kpiCreated=await request("/api/kpi",{action:"create",idempotency_key:kpiKey,entry:kpiEntry},kpiAdminCookie);const kpiRecord=await kpiCreated.json();check(kpiCreated.status===200,"Admin enters historical daily KPI data through HTTP");
+  const kpiDuplicate=await (await request("/api/kpi",{action:"create",idempotency_key:kpiKey,entry:kpiEntry},kpiAdminCookie)).json();check(kpiDuplicate.id===kpiRecord.id,"HTTP KPI double submit creates one record");
+  const kpiVisible=await (await request("/api/kpi",null,kpiViewerCookie)).json();check(kpiVisible.reports.length===1&&kpiVisible.reports[0].compost_fertilization===20&&!JSON.stringify(kpiVisible).includes("supervisor_id"),"Viewer reads actual independent KPI quantities without identities");
+  check((await request("/api/kpi",{action:"create",idempotency_key:crypto.randomUUID(),entry:kpiEntry},kpiSupervisorCookie)).status===403,"Supervisor KPI historical entry is blocked");
+  check((await request("/api/kpi",{action:"delete",id:kpiRecord.id},kpiSupervisorCookie)).status===403,"Supervisor KPI delete is blocked");
+  check((await request("/api/kpi",{action:"create",idempotency_key:crypto.randomUUID(),entry:{...kpiEntry,metrics:{compost_fertilization:-2}}},kpiAdminCookie)).status===400,"negative KPI activity is rejected");
+  check((await request("/api/kpi",{action:"delete",id:kpiRecord.id},kpiAdminCookie,{origin:"https://evil.example"})).status===403,"KPI edits reject cross-origin requests");
+  check((await request("/api/kpi",{action:"delete",id:kpiRecord.id},kpiAdminCookie)).status===200,"Admin KPI deletion succeeds");
+  check((await (await request("/api/kpi",null,kpiAdminCookie)).json()).reports.length===0,"KPI API reflects deletion immediately");
   for(const cookie of [viewerCookie,supervisorCookie])check((await request("/api/operations",{action:"record.location.update",type:"waste",id:crypto.randomUUID(),latitude:26,longitude:37},cookie)).status===403,"non-Admin cannot change report location through HTTP");
   check((await request("/api/report-import?kind=waste",null,viewerCookie)).status===403,"viewer cannot access import templates");
   check((await request("/api/report-import?kind=inspection",{},supervisorCookie)).status===403,"supervisor cannot bulk import");

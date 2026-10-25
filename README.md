@@ -91,9 +91,9 @@ Admin → Reports Management has separate Waste Tracking and Facilities Tracking
 
 ### Dashboard login URLs
 - Site Survey: `/survey/login` (existing PIN authentication).
-- Active Farms KPIs: `/kpi/login` (shared existing PIN authentication).
+- Active Farms KPIs: `/kpi/login` (independent KPI PIN authentication).
 - Manpower & Equipment: `/hr/login` (Coming soon).
-The legacy `/login` permanently redirects to `/survey/login`. KPI uses the existing users, PINs, sessions and revocation rules. HR remains a placeholder.
+The legacy `/login` permanently redirects to `/survey/login`. Survey and KPI use independent users, PINs and session cookies. HR remains a separate reserved dashboard.
 
 ### Admin Excel bulk import
 Reports Management provides separate Waste and Facilities `.xlsx` templates, validation previews, and imports. The Reports worksheet has Date, category/site details, decimal Latitude/Longitude, Photo URL 1, and optional Photo URL 2; see the Instructions worksheet. Use direct public HTTPS image links (JPEG/PNG/WebP), not share/gallery pages. Up to 100 rows and 2 MB per file. Invalid spreadsheets are rejected before importing. Rows are committed individually with progress; an interrupted run can resume, and exact same-file row retries are idempotent. Different files are treated as new imports.
@@ -108,7 +108,7 @@ Migration 0008 stores corrections separately from immutable original GPS/Excel c
 
 
 ### KPI dashboard
-`/kpi` provides Admin, Viewer and Supervisor panels with the same accounts as Survey. Admin can enter historical daily reports, edit/delete entries and manage shared users/PINs; Viewer is read-only with supervisor identities omitted; Supervisor submits today's Riyadh activity once and views their own reports; Admin handles corrections. PIN changes and session revocation apply across dashboards.
+`/kpi` provides Admin, Viewer and Supervisor panels with accounts isolated from Survey. Admin can enter historical daily reports, edit/delete entries and manage KPI users/PINs; Viewer is read-only with supervisor identities omitted; Supervisor submits today's Riyadh activity once and views their own reports; Admin handles corrections. PIN changes and session revocation apply only within that dashboard.
 
 Migration 0009 creates separate KPI tables, indexes and authorization triggers without changing Survey records or importing example data. The dashboard starts empty. All writes require authenticated same-origin requests and database authorization guards; creates are idempotent and edits/deletions are audited.
 
@@ -126,6 +126,11 @@ Migration 0011 adds audited Admin-only form wording settings. The Admin Edit tab
 ### Editable KPI form and daily-report filters
 Admin Edit can add up to 30 bilingual textboxes, mark additional fields required, remove fields from future forms, and restore removed fields. Removal retains the field definition and historical answers; existing numeric KPI quantities and calculations remain unchanged. New textboxes store additional text independently in custom_fields (migration 0012). Hidden standard KPI inputs are omitted from new forms, not removed from historical reports. Supervisor identity is fixed by authentication. Required custom answers are checked on the server.
 
-Supervisor forms start in Arabic on each opening, with an English switch. The automatic Riyadh reporting date appears in a compact form-title capsule. Admin Users & PINs supports audited name changes and the existing secure PIN-reset process. Shared account changes apply to Survey and KPI.
+Supervisor forms start in Arabic on each opening, with an English switch. The automatic Riyadh reporting date appears in a compact form-title capsule. Admin Users & PINs supports audited name changes and the existing secure PIN-reset process. Account changes apply only to the selected dashboard.
 
 Daily Reports loads every authorized report through paginated API reads, presents the newest submission first, and supports inclusive activity-date ranges, Supervisor filtering for Admin, search, and paginated display. Clearing filters restores the complete report list.
+
+### Dashboard account isolation
+Migration 0013 scopes users and credential fingerprints to Survey, KPI or future HR, preserves globally unique account IDs for report ownership, scopes last-Admin protection, and invalidates old shared sessions. Survey and KPI use separate HttpOnly Secure SameSite cookies. Login/account requests explicitly select a dashboard; server routes validate the matching scoped session. Cross-dashboard account edits and data requests are rejected. Existing PIN values may be retained independently; changing a name, PIN, activation or session in one dashboard does not change another.
+
+Production account separation is a backed-up, rehearsed one-time maintenance operation using private SQL excluded from Git. It retains original Survey owner IDs and restores its original Supervisor credentials from the pre-KPI backup, while preserving all current KPI identities and credentials under separate account IDs. No default PIN is added to application code. Reports, quantities, photos and GPS metadata are not deleted or renumbered.

@@ -61,7 +61,7 @@ const quote=value=>value===null?"NULL":typeof value==="number"?String(value):"'"
 const statements=["DROP TRIGGER report_validate; DROP TRIGGER report_commit; DROP TRIGGER inspection_structure_required;"];
 for(const table of ["users","location_verifications","photo_uploads","reports","record_photos","delivery_attempts"]){
  const rows=localSQL(["--command","SELECT * FROM "+table])[0];
- for(const row of rows){if(table==="reports"){delete row.source;delete row.import_key;delete row.admin_latitude;delete row.admin_longitude;delete row.location_edited_at;delete row.location_edited_by;}const names=Object.keys(row);statements.push("INSERT INTO "+table+"("+names.join(",")+") VALUES("+names.map(name=>quote(row[name])).join(",")+");");}
+ for(const row of rows){if(table==="users")delete row.dashboard;if(table==="reports"){delete row.source;delete row.import_key;delete row.admin_latitude;delete row.admin_longitude;delete row.location_edited_at;delete row.location_edited_by;}const names=Object.keys(row);statements.push("INSERT INTO "+table+"("+names.join(",")+") VALUES("+names.map(name=>quote(row[name])).join(",")+");");}
 }
 const fixture=join(legacy,"populated-fixture.sql");await writeFile(fixture,statements.join("\n"));localSQL(["--file",fixture],legacy);
 localSQL(["--file","migrations/0007_excel_import.sql"],legacy);

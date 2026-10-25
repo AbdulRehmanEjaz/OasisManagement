@@ -16,7 +16,7 @@ export default function Login({destination="/survey",heading="Welcome to Site Su
       const r = await fetch("/api/auth", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "login", pin }),
+        body: JSON.stringify({ action: "login", pin,dashboard:destination==='/kpi'?'kpi':'survey' }),
       });
       const d = await r.json();
       if (!r.ok) throw new Error(d.error);

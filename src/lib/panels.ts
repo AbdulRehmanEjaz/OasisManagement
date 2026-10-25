@@ -1,5 +1,4 @@
-import { requireUser } from "./backend";
-export { sessionCookie } from "./backend";
-export async function requirePanel(admin = false) {
-  return (await requireUser(admin)).profile;
-}
+import { requireUser } from './backend';
+import type {Dashboard} from './d1-store';
+export {sessionCookie} from './backend';
+export async function requirePanel(admin=false,dashboard:Dashboard='survey'){return (await requireUser(admin,dashboard)).profile;}

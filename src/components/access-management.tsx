@@ -13,6 +13,8 @@ export default function AccessManagement({
   onChange: () => void;
   loginPath?: "/survey/login" | "/kpi/login";
 }) {
+  const dashboard=loginPath==="/kpi/login"?"kpi":"survey";
+  const accountApi=(action:string,body:Record<string,unknown>)=>api(action,{...body,dashboard});
   const [rows, setRows] = useState<Row[]>([]),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false),
@@ -24,11 +26,11 @@ export default function AccessManagement({
     [revision, setRevision] = useState(0);
   useEffect(() => {
     setLoading(true);
-    read("users")
+    read("users",{dashboard})
       .then((d) => setRows(d.data))
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
-  }, [revision]);
+  }, [revision,dashboard]);
   function refreshed() {
     onChange();
     setRevision((v) => v + 1);
@@ -42,7 +44,7 @@ export default function AccessManagement({
     setError("");
     try {
       const f = new FormData(e.currentTarget);
-      const result = await api(change ? "user.pin" : "user.create", {
+      const result = await accountApi(change ? "user.pin" : "user.create", {
         ...Object.fromEntries(f),
         ...(change ? { id: change.id } : {}),
       });
@@ -120,7 +122,7 @@ export default function AccessManagement({
                       onClick={async () => {
                         setBusy(true);
                         try {
-                          await api("user.toggle", {
+                          await accountApi("user.toggle", {
                             id: u.id,
                             is_active: !u.is_active,
                           });
@@ -207,7 +209,7 @@ export default function AccessManagement({
           </form>
         </Modal>
       )}
-      {rename&&<Modal title="Change name" onClose={()=>setRename(null)}><form onSubmit={async e=>{e.preventDefault();setBusy(true);try{await api('user.name',{id:rename.id,full_name:new FormData(e.currentTarget).get('full_name')});setRename(null);refreshed();}catch(e){setError((e as Error).message);}finally{setBusy(false);}}}><label>Full name<input name="full_name" defaultValue={rename.full_name} required minLength={2} maxLength={100}/></label>{error&&<p role="alert" className="notice error">{error}</p>}<Button disabled={busy}>{busy?'Saving…':'Save name'}</Button></form></Modal>}
+      {rename&&<Modal title="Change name" onClose={()=>setRename(null)}><form onSubmit={async e=>{e.preventDefault();setBusy(true);try{await accountApi('user.name',{id:rename.id,full_name:new FormData(e.currentTarget).get('full_name')});setRename(null);refreshed();}catch(e){setError((e as Error).message);}finally{setBusy(false);}}}><label>Full name<input name="full_name" defaultValue={rename.full_name} required minLength={2} maxLength={100}/></label>{error&&<p role="alert" className="notice error">{error}</p>}<Button disabled={busy}>{busy?'Saving…':'Save name'}</Button></form></Modal>}
       {remove && (
         <Modal title="Remove this user?" onClose={() => setRemove(null)}>
           <p>
@@ -229,7 +231,7 @@ export default function AccessManagement({
               onClick={async () => {
                 setBusy(true);
                 try {
-                  await api("user.delete", { id: remove.id });
+                  await accountApi("user.delete", { id: remove.id });
                   refreshed();
                 } catch (e) {
                   setError((e as Error).message);

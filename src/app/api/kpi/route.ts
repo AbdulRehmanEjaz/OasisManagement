@@ -5,10 +5,10 @@ import {failure,json} from '@/lib/http';
 import {HttpError} from '@/lib/d1-store';
 import {isSameOrigin} from '@/lib/request-security';
 import {saveKpiFormSettings,readKpiReports,createKpiReport,updateKpiReport,deleteKpiReport} from '@/lib/kpi/store';
-export async function GET(req:NextRequest){try{const {db,profile}=await requireUser();const cursor=req.nextUrl.searchParams.get('cursor')||'';if(cursor)z.uuid().parse(cursor);return json(await readKpiReports(db,profile,cursor));}catch(e){return failure(e);}}
+export async function GET(req:NextRequest){try{const {db,profile}=await requireUser(false,"kpi");const cursor=req.nextUrl.searchParams.get('cursor')||'';if(cursor)z.uuid().parse(cursor);return json(await readKpiReports(db,profile,cursor));}catch(e){return failure(e);}}
 export async function POST(req:NextRequest){try{
  if(!isSameOrigin(req))throw new HttpError('FORBIDDEN',403);
- const {db,profile}=await requireUser();if(profile.role==='viewer')throw new HttpError('FORBIDDEN',403);
+ const {db,profile}=await requireUser(false,"kpi");if(profile.role==='viewer')throw new HttpError('FORBIDDEN',403);
  if(Number(req.headers.get('content-length'))>150000)throw new HttpError('Report is too large.');
  const body=await req.json();const action=z.enum(['create','update','delete','settings']).parse(body.action);await db.limit('kpi:'+profile.id+':'+action,40,60000);
  if(action==='settings')return json(await saveKpiFormSettings(db,profile,body.fields));

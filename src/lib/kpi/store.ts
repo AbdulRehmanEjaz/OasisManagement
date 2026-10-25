@@ -5,6 +5,7 @@ import {saudiDate} from './calculations';
 const metricsSchema=z.object(Object.fromEntries(ACTIVITY_FIELDS.map(f=>[f.key,f.integer?z.number().int().min(0).max(1000000000).default(0):z.number().min(0).max(1000000000).default(0)]))).strict();
 export const kpiEntrySchema=z.object({report_date:z.iso.date().refine(d=>d>=PROJECT.start&&d<=PROJECT.end,'Report date must be within 01 Oct–31 Dec 2026.'),location:z.string().trim().max(200).default(''),notes:z.string().max(4000).default(''),custom_fields:z.record(z.string().regex(/^custom_[a-zA-Z0-9_-]{1,64}$/),z.string().max(2000)).default({}),metrics:metricsSchema,supervisor_id:z.uuid().optional()});
 export async function readKpiReports(db:D1Store,actor:Actor,cursor=''){
+ if(db.dashboard!=="kpi"||actor.dashboard!=="kpi")throw new HttpError("FORBIDDEN",403);
  const rows=await db.all(`SELECT r.*,u.full_name supervisor_name FROM kpi_daily_reports r JOIN users u ON u.id=r.supervisor_id WHERE r.project_id=? AND r.deleted_at IS NULL AND r.id>?${actor.role==='supervisor'?' AND r.supervisor_id=?':''} ORDER BY r.id LIMIT 251`,PROJECT.id,cursor,...(actor.role==='supervisor'?[actor.id]:[]));
  const more=rows.length>250,selected=rows.slice(0,250);
  const reports=selected.map(row=>{
@@ -17,11 +18,12 @@ export async function readKpiReports(db:D1Store,actor:Actor,cursor=''){
  return {reports,submittedToday,formSettings:settings?JSON.parse(settings.fields):{},nextCursor:more?selected[selected.length-1].id:null};
 }
 export async function createKpiReport(db:D1Store,actor:Actor,input:unknown,now=new Date()){
+ if(db.dashboard!=="kpi"||actor.dashboard!=="kpi")throw new HttpError("FORBIDDEN",403);
  if(!['admin','supervisor'].includes(actor.role))throw new HttpError('FORBIDDEN',403);
  const raw=z.object({idempotency_key:z.uuid(),entry:kpiEntrySchema}).parse(input),p=raw.entry;
  if(actor.role!=='admin'&&(p.report_date!==saudiDate(now)||(p.supervisor_id&&p.supervisor_id!==actor.id)))throw new HttpError('Supervisors must report today under their own name.',403);
  const supervisor=p.supervisor_id||actor.id;
- if(!await db.one("SELECT id FROM users WHERE id=? AND role IN ('admin','supervisor') AND is_active=1 AND deleted_at IS NULL",supervisor))throw new HttpError('Choose an active reporting supervisor.');
+ if(!await db.one("SELECT id FROM users WHERE dashboard='kpi' AND id=? AND role IN ('admin','supervisor') AND is_active=1 AND deleted_at IS NULL",supervisor))throw new HttpError('Choose an active reporting supervisor.');
  const existing=await db.one('SELECT id FROM kpi_daily_reports WHERE created_by=? AND idempotency_key=?',actor.id,raw.idempotency_key);if(existing)return {id:existing.id};
  if(actor.role==='supervisor'&&await db.one('SELECT id FROM kpi_daily_reports WHERE project_id=? AND supervisor_id=? AND report_date=?',PROJECT.id,supervisor,p.report_date))throw new HttpError('You have already submitted, please contact your Manager.',409);
  await validateForm(db,p);
@@ -33,6 +35,7 @@ export async function createKpiReport(db:D1Store,actor:Actor,input:unknown,now=n
  return {id};
 }
 export async function updateKpiReport(db:D1Store,actor:Actor,input:unknown){
+ if(db.dashboard!=="kpi"||actor.dashboard!=="kpi")throw new HttpError("FORBIDDEN",403);
  if(actor.role==='supervisor')throw new HttpError('You have already submitted, please contact your Manager.',403);
  if(!['admin','supervisor'].includes(actor.role))throw new HttpError('FORBIDDEN',403);
  const raw=z.object({id:z.uuid(),entry:kpiEntrySchema}).parse(input),p=raw.entry;
@@ -48,12 +51,14 @@ export async function updateKpiReport(db:D1Store,actor:Actor,input:unknown){
  ]);return {id:raw.id};
 }
 export async function deleteKpiReport(db:D1Store,actor:Actor,id:string){
+ if(db.dashboard!=="kpi"||actor.dashboard!=="kpi")throw new HttpError("FORBIDDEN",403);
  if(actor.role!=='admin')throw new HttpError('FORBIDDEN',403);z.uuid().parse(id);
  const old=await db.one('SELECT id FROM kpi_daily_reports WHERE id=? AND project_id=? AND deleted_at IS NULL',id,PROJECT.id);if(!old)throw new HttpError('Report unavailable.',404);
  const now=new Date().toISOString();await db.write(actor,'admin',[db.stmt('UPDATE kpi_daily_reports SET deleted_at=?,updated_at=?,updated_by=? WHERE id=?',now,now,actor.id,id),db.audit(actor.id,'kpi',id,'KPI_DELETED')]);return {id};
 }
 
 export async function saveKpiFormSettings(db:D1Store,actor:Actor,input:unknown){
+ if(db.dashboard!=="kpi"||actor.dashboard!=="kpi")throw new HttpError("FORBIDDEN",403);
  if(actor.role!=='admin')throw new HttpError('FORBIDDEN',403);
  const field=z.object({en:z.string().trim().min(1).max(100),ar:z.string().trim().min(1).max(100),hintEn:z.string().max(400),hintAr:z.string().max(400),hidden:z.boolean().optional()}).strict();
  const fields=z.object({...Object.fromEntries([...ACTIVITY_FIELDS.map(f=>f.key),'location','notes'].map(key=>[key,field.optional()])),custom:z.array(z.object({id:z.string().regex(/^custom_[a-zA-Z0-9_-]{1,64}$/),en:z.string().trim().min(1).max(100),ar:z.string().trim().min(1).max(100),required:z.boolean(),hidden:z.boolean().optional()}).strict()).max(30).optional()}).strict().refine(v=>new Set(v.custom?.map(f=>f.id)).size===(v.custom?.length||0),'Duplicate field IDs.').parse(input);

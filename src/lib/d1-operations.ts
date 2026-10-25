@@ -29,6 +29,7 @@ export async function readRecords(
   type: string,
   q: URLSearchParams,
 ): Promise<Data> {
+  if(actor.dashboard!=="survey"||db.dashboard!=="survey")throw new HttpError("FORBIDDEN",403);
   if (!canReadType(actor.role, type)) throw new HttpError("FORBIDDEN", 403);
   if (actor.role === "supervisor" && type === "facilities") {
     const data = await db.all(
@@ -64,7 +65,7 @@ export async function readRecords(
             )?.n,
             supervisors: (
               await db.one(
-                "SELECT count(*) n FROM users WHERE role='supervisor' AND is_active=1 AND deleted_at IS NULL",
+                "SELECT count(*) n FROM users WHERE dashboard='survey' AND role='supervisor' AND is_active=1 AND deleted_at IS NULL",
               )
             )?.n,
           }
@@ -86,6 +87,7 @@ export async function readRecords(
   if (type === "facilities" && q.get("archived") !== "1")
     where.push("archived_at IS NULL");
   if (type === "notifications") filter("recipient_id=?", actor.id);
+  if(type==="audit")where.push("record_type<>'kpi' AND (record_type<>'users' OR record_id IN(SELECT id FROM users WHERE dashboard='survey'))");
   if (q.get("facility") && type === "inspections")
     filter("facility_id=?", z.uuid().parse(q.get("facility")));
   if (q.get("record") && ["deliveries", "audit"].includes(type))
@@ -398,7 +400,7 @@ export async function updateRecord(db: D1Store, actor: Actor, input: Data) {
   if (
     patch.assigned_supervisor &&
     !(await db.one(
-      "SELECT id FROM users WHERE id=? AND role='supervisor' AND is_active=1 AND deleted_at IS NULL",
+      "SELECT id FROM users WHERE dashboard='survey' AND id=? AND role='supervisor' AND is_active=1 AND deleted_at IS NULL",
       patch.assigned_supervisor,
     ))
   )

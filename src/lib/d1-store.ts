@@ -11,6 +11,7 @@ import {
 import { hashPin, checkPin } from "./pin-crypto";
 import type { Role } from "./access-policy";
 import { z } from "zod";
+export type Dashboard = "survey"|"kpi"|"hr";
 export type Data = Record<string, any>;
 export type Actor = {
   id: string;
@@ -19,6 +20,7 @@ export type Actor = {
   is_active: boolean;
   email: string;
   tokenHash: string;
+  dashboard?: Dashboard;
 };
 export class HttpError extends Error {
   constructor(
@@ -42,6 +44,7 @@ export class D1Store {
   constructor(
     public db: D1Database,
     private lookupSecret: string,
+    public dashboard:Dashboard="survey",
   ) {}
   stmt(sql: string, ...values: unknown[]) {
     return this.db
@@ -74,9 +77,10 @@ export class D1Store {
     if (Number(row?.hits) > maximum)
       throw new HttpError("Too many attempts. Please try again later.", 429);
   }
+  credentialFingerprint(pin:string){return this.dashboard+":"+this.fingerprint(pin);}
   async login(pin: string, ip: string, now = Date.now()) {
     pinSchema.parse(pin);
-    const fingerprint = this.fingerprint(pin);
+    const fingerprint = this.credentialFingerprint(pin);
     // Shared dashboard login intentionally has no attempt-count lockout.
     const account = await this.one(
       "SELECT id,pin_hash,version FROM users WHERE pin_fingerprint=? AND is_active=1 AND deleted_at IS NULL",
@@ -104,17 +108,17 @@ export class D1Store {
     if (!/^[a-f0-9]{64}$/.test(token)) throw new HttpError("UNAUTHORIZED", 401);
     const hash = tokenHash(token);
     const user = await this.one(
-      `SELECT u.id,u.full_name,u.role,u.is_active FROM users u JOIN sessions s ON s.user_id=u.id WHERE s.token_hash=? AND s.version=u.version AND s.expires_at>? AND u.is_active=1 AND u.deleted_at IS NULL`,
+      `SELECT u.id,u.full_name,u.role,u.is_active,u.dashboard FROM users u JOIN sessions s ON s.user_id=u.id WHERE s.token_hash=? AND s.version=u.version AND s.expires_at>? AND u.is_active=1 AND u.deleted_at IS NULL AND u.dashboard=?`,
       hash,
-      now,
+      now,this.dashboard,
     );
     if (!user) throw new HttpError("UNAUTHORIZED", 401);
     return { ...user, is_active: true, email: "", tokenHash: hash } as Actor;
   }
   async logout(token: string) {
     await this.stmt(
-      "DELETE FROM sessions WHERE token_hash=?",
-      tokenHash(token),
+      "DELETE FROM sessions WHERE token_hash=? AND user_id IN(SELECT id FROM users WHERE dashboard=?)",
+      tokenHash(token),this.dashboard,
     ).run();
   }
   audit(
@@ -139,6 +143,7 @@ export class D1Store {
     role: "admin" | "submit" | "any",
     statements: D1PreparedStatement[],
   ) {
+    if(actor.dashboard!==this.dashboard)throw new HttpError("FORBIDDEN",403);
     if (
       (role === "admin" && actor.role !== "admin") ||
       (role === "submit" && !["admin", "supervisor"].includes(actor.role))
@@ -178,35 +183,37 @@ export class D1Store {
       .refine(p => !!p.viewer_pin === !!p.supervisor_pin, "Provide both Viewer and Supervisor PINs.")
       .refine(p => new Set([p.pin,p.viewer_pin,p.supervisor_pin].filter(Boolean)).size === (p.viewer_pin ? 3 : 1), "Each panel must have a different PIN.")
       .parse(input);
-    if (await this.one("SELECT id FROM users LIMIT 1"))
+    if (await this.one("SELECT id FROM users WHERE dashboard=? LIMIT 1",this.dashboard))
       throw new HttpError("Administrator setup is already complete.", 409);
     const id = crypto.randomUUID();
     await this.db.batch([
-      this.stmt("INSERT INTO setup_lock(id) VALUES(1)"),
+      this.stmt("INSERT INTO dashboard_setup_lock(dashboard) VALUES(?)",this.dashboard),
       this.stmt(
-        "INSERT INTO users(id,full_name,role,pin_hash,pin_fingerprint) VALUES(?,?,?,?,?)",
+        "INSERT INTO users(id,full_name,role,pin_hash,pin_fingerprint,dashboard) VALUES(?,?,?,?,?,?)",
         id,
         p.full_name,
         "admin",
         hashPin(p.pin),
-        this.fingerprint(p.pin),
+        this.credentialFingerprint(p.pin),this.dashboard,
       ),
       this.audit(id, "users", id, "ADMIN_SETUP"),
       ...([ ["viewer",p.viewer_pin], ["supervisor",p.supervisor_pin] ] as const).filter(([,pin])=>!!pin).flatMap(([role,pin])=>{
         const accountId=crypto.randomUUID();
-        return [this.stmt("INSERT INTO users(id,full_name,role,pin_hash,pin_fingerprint) VALUES(?,?,?,?,?)",accountId,role==="viewer"?"Viewer":"Supervisor",role,hashPin(pin!),this.fingerprint(pin!)),this.audit(id,"users",accountId,"USER_CREATED",{role})];
+        return [this.stmt("INSERT INTO users(id,full_name,role,pin_hash,pin_fingerprint,dashboard) VALUES(?,?,?,?,?,?)",accountId,role==="viewer"?"Viewer":"Supervisor",role,hashPin(pin!),this.credentialFingerprint(pin!),this.dashboard),this.audit(id,"users",accountId,"USER_CREATED",{role})];
       }),
     ]);
   }
   async accounts(actor: Actor): Promise<Data[]> {
+    if(actor.dashboard!==this.dashboard)throw new HttpError("FORBIDDEN",403);
     if (actor.role !== "admin") throw new HttpError("FORBIDDEN", 403);
     return (
       await this.all(
-        "SELECT id,full_name,role,is_active,created_at,'' AS email FROM users WHERE deleted_at IS NULL ORDER BY created_at",
+        "SELECT id,full_name,role,is_active,created_at,'' AS email FROM users WHERE deleted_at IS NULL AND dashboard=? ORDER BY created_at",this.dashboard,
       )
     ).map((u) => ({ ...u, is_active: !!u.is_active }));
   }
   async changeAccount(actor: Actor, input: Data) {
+    if(actor.dashboard!==this.dashboard)throw new HttpError("FORBIDDEN",403);
     if (actor.role !== "admin") throw new HttpError("FORBIDDEN", 403);
     const action = z
       .enum(["user.create", "user.pin", "user.name", "user.toggle", "user.delete"])
@@ -216,12 +223,12 @@ export class D1Store {
         id = crypto.randomUUID();
       await this.write(actor, "admin", [
         this.stmt(
-          "INSERT INTO users(id,full_name,role,pin_hash,pin_fingerprint) VALUES(?,?,?,?,?)",
+          "INSERT INTO users(id,full_name,role,pin_hash,pin_fingerprint,dashboard) VALUES(?,?,?,?,?,?)",
           id,
           p.full_name,
           p.role,
           hashPin(p.pin),
-          this.fingerprint(p.pin),
+          this.credentialFingerprint(p.pin),this.dashboard,
         ),
         this.audit(actor.id, "users", id, "USER_CREATED", { role: p.role }),
       ]);
@@ -236,8 +243,8 @@ export class D1Store {
       throw new HttpError("You cannot deactivate or remove your own account.");
     if (
       !(await this.one(
-        "SELECT id FROM users WHERE id=? AND deleted_at IS NULL",
-        id,
+        "SELECT id FROM users WHERE id=? AND deleted_at IS NULL AND dashboard=?",
+        id,this.dashboard,
       ))
     )
       throw new HttpError("Account unavailable.", 404);
@@ -247,7 +254,7 @@ export class D1Store {
         ? this.stmt(
             "UPDATE users SET pin_hash=?,pin_fingerprint=?,version=version+1 WHERE id=? AND deleted_at IS NULL",
             hashPin(pinSchema.parse(input.pin)),
-            this.fingerprint(input.pin),
+            this.credentialFingerprint(input.pin),
             id,
           )
         : action === "user.toggle"
