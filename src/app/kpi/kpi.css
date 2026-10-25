@@ -69,3 +69,30 @@ body:has(.kpi-app){background:var(--bg)}
 
 .kpi-submission-receipt{text-align:center;color:var(--ink)}.kpi-submission-receipt>svg{color:var(--teal);margin:4px auto 12px}.kpi-submission-receipt h2{font-size:24px;margin:0 0 10px}.kpi-submission-receipt>p{color:var(--muted);margin:0 0 12px}.kpi-submission-receipt>strong,.kpi-submission-receipt time{display:block}.kpi-submission-receipt time{font-size:12px;color:var(--muted);margin-top:6px}.kpi-submission-receipt h3{font-size:14px;margin:20px 0 12px;border-top:1px solid var(--line);padding-top:16px}.kpi-submission-receipt dl{display:grid;gap:7px;margin:0 0 18px;text-align:start}.kpi-submission-receipt dl>div{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 12px;background:var(--soft);border-radius:12px}.kpi-submission-receipt dt{font-size:12px;line-height:1.6;flex:1}.kpi-submission-receipt dd{margin:0;max-width:55%;font-weight:650;overflow-wrap:anywhere;white-space:pre-wrap}.kpi-submission-receipt dd small{font-weight:400;font-size:11px}.kpi-submission-receipt>button{width:100%}
 .kpi-daily-access{margin-bottom:20px}.kpi-daily-access .user-row{display:flex;justify-content:space-between;align-items:center;gap:12px}.kpi-daily-access .user-row small{display:block;color:var(--muted);font-size:12px;margin-top:4px}.kpi-daily-access .card-heading{flex-wrap:wrap;gap:10px}
+/* Full-width Admin / Viewer workspace; Supervisor uses its separate mobile shell. */
+@media screen {
+ .kpi-app{width:100%;max-width:none;margin:0;padding:20px clamp(16px,1.4vw,28px);grid-template-columns:210px minmax(0,1fr);gap:20px;font-size:15px}
+ .kpi-app-header{padding:16px 22px;min-height:100px}
+ .kpi-app-nav{top:20px;padding:14px}
+ .kpi-app-title p{font-size:13px}
+ .kpi-account strong{font-size:13px}.kpi-account small{font-size:12px}
+ .kpi-app .kpi-filter-panel button,.kpi-app .kpi-print{font-size:13px}
+ .kpi-app label,.kpi-period{font-size:13px}.kpi-period span{font-size:12px}
+ .kpi-filter-panel{padding:14px 18px}.kpi-mode-tabs{padding-bottom:10px}.kpi-filter-fields{margin-top:10px}
+ .kpi-dashboard-grid{gap:20px;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr)}
+ .kpi-scorecards{gap:18px}.kpi-scorecard h2{font-size:clamp(18px,1.15vw,22px)}
+ .kpi-card-body{padding:20px 18px;gap:20px}.kpi-indicator{gap:12px;min-height:64px}
+ .kpi-indicator strong{font-size:14px;line-height:1.4}.kpi-indicator span:not(.kpi-gauge span){font-size:12px}.kpi-indicator small{font-size:12px}
+ .kpi-card-foot{font-size:12px}.kpi-gauge{height:66px;width:66px}.kpi-gauge>span{font-size:13px;line-height:56px}.kpi-gauge small{font-size:10px!important}
+ .kpi-gauge-large{height:94px;width:94px}.kpi-gauge-large>span{font-size:25px;line-height:82px}.kpi-gauge-large small{font-size:13px!important}
+ .kpi-overall>header h2{font-size:18px}
+ .kpi-weekly{padding:22px}.kpi-weekly>h2{font-size:24px}.kpi-week-dates{font-size:13px}.kpi-week-dates span{font-size:12px}
+ .kpi-week-section{margin-top:22px}.kpi-week-section h3{font-size:15px}
+ .kpi-weekly table,.kpi-weekly tbody th{font-size:12px}.kpi-weekly thead th{font-size:11px}.kpi-weekly td small{font-size:11px}
+ .kpi-weekly th,.kpi-weekly td{padding:10px 8px;line-height:1.5}
+ .kpi-operation-grid span,.kpi-operation-grid small{font-size:12px}.kpi-operation-grid strong{font-size:22px}
+ .kpi-activity-panel>p{font-size:13px}
+}
+@media screen and (min-width:1001px) and (max-width:1450px){.kpi-dashboard-grid{grid-template-columns:1fr}}
+@media screen and (max-width:1000px){.kpi-app{display:block;padding:18px}.kpi-dashboard-grid{grid-template-columns:1fr}.kpi-app-nav{position:static}.kpi-card-body{padding:20px}.kpi-weekly{padding:20px}}
+@media screen and (max-width:640px){.kpi-app{padding:14px 12px}.kpi-app-header{padding:12px}.kpi-app-title p{font-size:11px}.kpi-account strong{font-size:10px}.kpi-scorecard h2{font-size:18px}.kpi-overall>header h2{font-size:17px}.kpi-card-body{padding:18px}.kpi-weekly{padding:18px 12px}.kpi-weekly>h2{font-size:21px}.kpi-weekly table,.kpi-weekly tbody th{font-size:11px}.kpi-weekly thead th{font-size:10px}.kpi-weekly th,.kpi-weekly td{padding:9px 6px}.kpi-operation-grid strong{font-size:19px}}
