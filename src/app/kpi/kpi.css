@@ -96,3 +96,24 @@ body:has(.kpi-app){background:var(--bg)}
 @media screen and (min-width:1001px) and (max-width:1450px){.kpi-dashboard-grid{grid-template-columns:1fr}}
 @media screen and (max-width:1000px){.kpi-app{display:block;padding:18px}.kpi-dashboard-grid{grid-template-columns:1fr}.kpi-app-nav{position:static}.kpi-card-body{padding:20px}.kpi-weekly{padding:20px}}
 @media screen and (max-width:640px){.kpi-app{padding:14px 12px}.kpi-app-header{padding:12px}.kpi-app-title p{font-size:11px}.kpi-account strong{font-size:10px}.kpi-scorecard h2{font-size:18px}.kpi-overall>header h2{font-size:17px}.kpi-card-body{padding:18px}.kpi-weekly{padding:18px 12px}.kpi-weekly>h2{font-size:21px}.kpi-weekly table,.kpi-weekly tbody th{font-size:11px}.kpi-weekly thead th{font-size:10px}.kpi-weekly th,.kpi-weekly td{padding:9px 6px}.kpi-operation-grid strong{font-size:19px}}
+/* Compact reporting toolbar leaves more vertical room for the KPI data. */
+@media screen {
+ .kpi-filter-panel{padding:10px 16px;border-radius:20px}
+ .kpi-mode-tabs{padding-bottom:7px;gap:4px}
+ .kpi-app .kpi-mode-tabs button{min-height:34px;padding:6px 11px}
+ .kpi-filter-fields{margin-top:7px;gap:8px 12px;align-items:center}
+ .kpi-filter-fields label{gap:3px;font-size:12px}
+ .kpi-app .kpi-filter-fields input,.kpi-app .kpi-filter-fields select{min-height:36px;padding:6px 10px}
+ .kpi-period{gap:2px;line-height:1.35;font-size:12px}
+ .kpi-period span{font-size:11px}
+ .kpi-app .kpi-print{min-height:34px;padding:6px 8px!important}
+}
+@media screen and (min-width:1001px){
+ .kpi-filter-fields label{flex-direction:row;align-items:center;gap:8px}
+ .kpi-filter-fields .btn{min-height:36px;padding:6px 12px}
+}
+@media screen and (max-width:640px){
+ .kpi-filter-panel{padding:10px 12px}
+ .kpi-filter-fields label{min-width:120px}
+ .kpi-period{width:auto;flex:1;min-width:180px}
+}
