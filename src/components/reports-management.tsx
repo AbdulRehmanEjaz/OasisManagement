@@ -43,7 +43,7 @@ export default function ReportsManagement() {
       {error&&<p className="notice error" role="alert">{error}</p>}
       <Button disabled={!counts?.photos||!!downloading||importBusy} onClick={()=>download("zip")}><Download size={18}/>Download all photos (.zip)</Button>
       <Button disabled={!counts?.reports||!!downloading||importBusy} onClick={()=>download("xlsx")}><Download size={18}/>Export Excel (.xlsx)</Button>
-      {downloading&&<p role="status">Preparing {downloading.toUpperCase()}: {progress.done} / {progress.total} photos downloaded…</p>}
+      {downloading&&<p role="status">Preparing {downloading.toUpperCase()}: {progress.done} / {progress.total} photos processed…</p>}
       {counts?.photos===0&&<p className="muted">No photos have been submitted in this category yet.</p>}
       <p className="muted">Large downloads may take a few minutes. Your browser will show the download progress. Keep this tab open; retry if the image host cannot be reached.</p>
     </div>
