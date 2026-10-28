@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Leaf,
   LayoutDashboard,
@@ -87,6 +87,8 @@ export default function Workspace({
   timezone: string;
   gpsThreshold: number;
 }) {
+  const openingReport=useRef(false);
+  const [submissionBlocked,setSubmissionBlocked]=useState(false);
   const [controls,setControls]=useState<Row[]>(initialControls);
   const admin = profile?.role === "admin";
   const viewer = profile?.role === "viewer";
@@ -145,6 +147,21 @@ export default function Workspace({
         .then((d) => d.data[0] && setDetail({ row: d.data[0], type: v! }))
         .catch((e) => setError(e.message));
   }, [configured]);
+  async function openReportForm(kind:'waste'|'inspection'|'facility'|'palms'){
+    if(openingReport.current)return;
+    openingReport.current=true;
+    try{
+      if(!admin){
+        const latest=await read('controls');setControls(latest.data);
+        if(!latest.data.find((c:Row)=>c.kind===(kind==='facility'?'inspection':kind))?.submission_enabled){
+          setForm(null);setChooser(false);setSuccess(null);setSubmissionBlocked(true);return;
+        }
+      }
+      setSubmissionBlocked(false);setForm(kind);
+    }catch(e){setForm(null);setError('Unable to check submission access. Please retry.');}
+    finally{openingReport.current=false;}
+  }
+  useEffect(()=>{if(form&&!admin&&!canSubmitKind(form==='facility'?'inspection':form)){setForm(null);setSubmissionBlocked(true);}},[controls,form,admin]);
   const reload = useCallback(() => setRefresh((n) => n + 1), []);
   useEffect(() => {
     let alive = true;
@@ -453,9 +470,9 @@ export default function Workspace({
                     New report
                   </Button>
                 ) : ["waste", "inspections", "palms"].includes(view) ? (
-                  <Button disabled={!canSubmitKind(categoryFor(view))}
+                  <Button
                     onClick={() =>
-                      setForm(view === "palms" ? "palms" : view === "waste" ? "waste" : "inspection")
+                      openReportForm(view === "palms" ? "palms" : view === "waste" ? "waste" : "inspection")
                     }
                   >
                     <Plus size={18} />
@@ -463,7 +480,7 @@ export default function Workspace({
                   </Button>
                 ) : view === "facilities" ? (
                   <Button
-                    onClick={() => setForm(admin ? "facility" : "inspection")}
+                    onClick={() => openReportForm(admin ? "facility" : "inspection")}
                   >
                     <Plus size={18} />
                     {admin ? "Register facility" : "New inspection"}
@@ -505,7 +522,7 @@ export default function Workspace({
                       <Button
                         onClick={() => {
                           setModule("waste");
-                          setForm("waste");
+                          openReportForm("waste");
                         }}
                       >
                         <Plus size={18} />
@@ -542,7 +559,7 @@ export default function Workspace({
                       <Button
                         onClick={() => {
                           setModule("inspection");
-                          setForm(admin ? "facility" : "inspection");
+                          openReportForm(admin ? "facility" : "inspection");
                         }}
                       >
                         <Plus size={18} />
@@ -560,7 +577,7 @@ export default function Workspace({
                     )}
                   </footer>
                 </article>
-                <article className="module-card waste-module"><div className="module-header"><span className="module-icon"><Leaf size={28}/></span><span className="pill">DPT</span></div><div className="module-copy"><h2>Date Palms Tracking</h2><p>Record date palm photographs and GPS locations.</p></div><footer><Button disabled={!canSubmitKind('palms')} onClick={()=>setForm('palms')}>New Date Palms report <Plus size={18}/></Button><Button variant="ghost" onClick={()=>navigate('palms')}>My reports <ArrowUpRight size={18}/></Button></footer></article>
+                <article className="module-card waste-module"><div className="module-header"><span className="module-icon"><Leaf size={28}/></span><span className="pill">DPT</span></div><div className="module-copy"><h2>Date Palms Tracking</h2><p>Record date palm photographs and GPS locations.</p></div><footer><Button onClick={()=>openReportForm('palms')}>New Date Palms report <Plus size={18}/></Button><Button variant="ghost" onClick={()=>navigate('palms')}>My reports <ArrowUpRight size={18}/></Button></footer></article>
               </div>}
             </>
           ) : view === "palms" ? <PalmReports refresh={refresh} onSelect={row=>setDetail({row,type:'palms'})}/> : view === 'submission-control'&&admin ? <SubmissionControl controls={controls} onSaved={reload}/> : view === "reports-management" && admin ? (
@@ -1067,11 +1084,11 @@ export default function Workspace({
         <Modal title="Start a field report" onClose={() => setChooser(false)}>
           <p className="muted">Choose the module for your site visit.</p>
           <button
-            className="choice-card" disabled={!canSubmitKind("waste")}
+            className="choice-card"
             onClick={() => {
               setModule("waste");
               setChooser(false);
-              setForm("waste");
+              openReportForm("waste");
             }}
           >
             <Recycle size={26} />
@@ -1082,11 +1099,11 @@ export default function Workspace({
             <ArrowUpRight />
           </button>
           <button
-            className="choice-card" disabled={!canSubmitKind("inspection")}
+            className="choice-card"
             onClick={() => {
               setModule("inspection");
               setChooser(false);
-              setForm("inspection");
+              openReportForm("inspection");
             }}
           >
             <Building2 size={26} />
@@ -1096,10 +1113,11 @@ export default function Workspace({
             </div>
             <ArrowUpRight />
           </button>
-          <button className="choice-card" disabled={!canSubmitKind("palms")} onClick={()=>{setChooser(false);setForm("palms");}}><Leaf size={26}/><div><strong>Date Palms Tracking</strong><small>Collect date palm photographs and GPS location</small></div><ArrowUpRight/></button>
+          <button className="choice-card" onClick={()=>{setChooser(false);openReportForm("palms");}}><Leaf size={26}/><div><strong>Date Palms Tracking</strong><small>Collect date palm photographs and GPS location</small></div><ArrowUpRight/></button>
         </Modal>
       )}
-      {form && (
+      {submissionBlocked&&<Modal title="Submission blocked" onClose={()=>setSubmissionBlocked(false)}><div className="success-content"><ShieldCheck size={40}/><h2>Submission blocked</h2><p>Report submission for this category has been blocked by Admin. Please contact your Manager.</p></div><div className="form-footer"><Button onClick={()=>setSubmissionBlocked(false)}>OK</Button></div></Modal>}
+      {form && (admin||canSubmitKind(form==="facility"?"inspection":form)) && (
         <ReportForm
           key={form}
           kind={form}
@@ -1155,7 +1173,7 @@ export default function Workspace({
               variant="outline"
               onClick={() => {
                 setSuccess(null);
-                setForm(success.kind);
+                openReportForm(success.kind);
               }}
             >
               Submit another
