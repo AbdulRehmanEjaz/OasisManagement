@@ -22,5 +22,11 @@ test('Transient and interrupted photo requests retry without inserting corrupt o
 });
 test('Permanent image failure never produces a misleading partial archive',async()=>{
  const request=(async(input)=>String(input).includes('manifest=1')?Response.json({photos:[{id:'one',number:'COSA-102',url:'https://i.ibb.co/test/one.jpg'}]}):Response.json({error:'Original photo unavailable'},{status:502})) as typeof fetch;
- await assert.rejects(downloadReportArchive('waste','zip',()=>{},request),/Original photo unavailable.*No incomplete archive/);
+ await assert.rejects(downloadReportArchive('waste','zip',()=>{},request),/could not provide any photos/);
+});
+
+for(const format of ['zip','xlsx'] as const)test(format+' clearly identifies host failures while preserving available original photos',async()=>{
+ const photos=[{id:'one',number:'COSA-102',url:'https://i.ibb.co/test/one.jpg'},{id:'two',number:'COSA-103',url:'https://i.ibb.co/test/two.jpg'}];let missing=0;
+ const request=(async(input)=>{const url=String(input);if(url.includes('manifest=1'))return Response.json(format==='zip'?{photos}:{reports:photos.map(p=>({number:p.number,created_at:'2026-10-24T12:00:00Z',latitude:26.5,longitude:37.9,photos:[p]}))});if(url.includes('two'))return Response.json({error:'Image host unavailable'},{status:503});return new Response(Uint8Array.from([255,216,255,217]),{headers:{'Content-Type':'image/jpeg'}});}) as typeof fetch;
+ const blob=await downloadReportArchive('waste',format,(_done,_total,count)=>{missing=count||0;},request),files=unzipSync(new Uint8Array(await blob.arrayBuffer()));assert.equal(missing,1);assert.equal(Object.keys(files).filter(n=>n.endsWith('.jpg')).length,1);assert.match(strFromU8(files[format==='zip'?'_UNAVAILABLE_PHOTOS.txt':'xl/worksheets/sheet1.xml']),format==='zip'?/COSA-103/:/original photos unavailable/);
 });

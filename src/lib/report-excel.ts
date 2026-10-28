@@ -6,7 +6,7 @@ const xml='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>';
 const ns='http://schemas.openxmlformats.org/spreadsheetml/2006/main';
 const relns='http://schemas.openxmlformats.org/package/2006/relationships';
 const office='http://schemas.openxmlformats.org/officeDocument/2006/relationships/';
-export async function* reportExcel(kind:"waste"|"inspection",reports:AsyncIterable<ExcelReport>,signal:AbortSignal,fetchPhoto:typeof fetch=fetch):AsyncGenerator<Uint8Array>{
+export async function* reportExcel(kind:"waste"|"inspection",reports:AsyncIterable<ExcelReport>,signal:AbortSignal,fetchPhoto:typeof fetch=fetch,onPhotoError?:(report:ExcelReport,error:Error)=>void):AsyncGenerator<Uint8Array>{
  const queue:Uint8Array[]=[]; const zip=new Zip((e,c)=>{if(e)throw e;queue.push(c);});
  let total=0,files=0;
  function add(name:string,data:string|Uint8Array){const bytes=typeof data==='string'?strToU8(data):data;total+=bytes.length;if(total>0xffffffff-16777216||++files>65535)throw new Error('Excel archive is too large.');const file=new ZipPassThrough(name);zip.add(file);file.push(bytes,true);}
@@ -19,14 +19,18 @@ export async function* reportExcel(kind:"waste"|"inspection",reports:AsyncIterab
   const link=`https://www.google.com/maps/search/?api=1&query=${report.latitude},${report.longitude}`;
   const date=(Date.parse(report.created_at)+10800000)/86400000+25569;
   const values=kind==='waste'?[date,report.number,report.category,report.quantity,report.latitude,report.longitude,'Open in Google Maps','']:[date,report.number,report.site,report.longitude,report.latitude,'','Open in Google Maps',''];
-  rows+=`<row r="${row}" ht="78" customHeight="1">${values.map((v,i)=>cell(i,row,v,i===0?2:0)).join('')}</row>`;
+
   links+=`<hyperlink ref="G${row}" r:id="link${row}"/>`;sheetRels+=`<Relationship Id="link${row}" Type="${office}hyperlink" Target="${esc(link)}" TargetMode="External"/>`;
   for(let index=0;index<report.photos.length;index++){
+   let bytes:Uint8Array,ext:string|null;
+   try{
    const response=await fetchPhoto(trustedPhotoUrl(report.photos[index].url),{redirect:'manual',signal:AbortSignal.any([signal,AbortSignal.timeout(60000)])});
    if(!response.ok)throw new Error(`Could not download photo for ${report.number}. Retry the export.`);
-   const mime=response.headers.get('content-type')?.split(';')[0];const ext=mime==='image/jpeg'?'jpg':mime==='image/png'?'png':null;
+   const mime=response.headers.get('content-type')?.split(';')[0];ext=mime==='image/jpeg'?'jpg':mime==='image/png'?'png':null;
    if(!ext)throw new Error(`Photo for ${report.number} must be JPEG or PNG for Excel.`);
-   const bytes=new Uint8Array(await response.arrayBuffer());imageCount++;
+   bytes=new Uint8Array(await response.arrayBuffer());
+   }catch(e){if(!onPhotoError||signal.aborted)throw e;onPhotoError(report,e as Error);values[7]='One or more original photos unavailable from image host. Retry later.';continue;}
+   imageCount++;
    add(`xl/media/image${imageCount}.${ext}`,bytes);while(queue.length)yield queue.shift()!;
    // Preserve aspect ratio inside a compact, fixed photo cell.
    let width=120,height=85;const view=new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength);
@@ -36,6 +40,7 @@ export async function* reportExcel(kind:"waste"|"inspection",reports:AsyncIterab
    drawings+=`<xdr:oneCellAnchor><xdr:from><xdr:col>7</xdr:col><xdr:colOff>${(index*120+4)*9525}</xdr:colOff><xdr:row>${row-1}</xdr:row><xdr:rowOff>47625</xdr:rowOff></xdr:from><xdr:ext cx="${cx}" cy="${cy}"/><xdr:pic><xdr:nvPicPr><xdr:cNvPr id="${imageCount}" name="${esc(report.number)}-${index+1}"/><xdr:cNvPicPr><a:picLocks noChangeAspect="1"/></xdr:cNvPicPr></xdr:nvPicPr><xdr:blipFill><a:blip r:embed="img${imageCount}"/><a:stretch><a:fillRect/></a:stretch></xdr:blipFill><xdr:spPr><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></xdr:spPr></xdr:pic><xdr:clientData/></xdr:oneCellAnchor>`;
    drawingRels+=`<Relationship Id="img${imageCount}" Type="${office}image" Target="../media/image${imageCount}.${ext}"/>`;
   }
+  rows+=`<row r="${row}" ht="78" customHeight="1">${values.map((v,i)=>cell(i,row,v,i===0?2:0)).join('')}</row>`;
  }
  add('[Content_Types].xml',xml+`<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Default Extension="jpg" ContentType="image/jpeg"/><Default Extension="png" ContentType="image/png"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/drawings/drawing1.xml" ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/></Types>`);
  add('_rels/.rels',xml+`<Relationships xmlns="${relns}"><Relationship Id="workbook" Type="${office}officeDocument" Target="xl/workbook.xml"/></Relationships>`);

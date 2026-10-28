@@ -5,7 +5,7 @@ import {downloadReportArchive} from "@/lib/report-download";
 import ReportImport from "./report-import";
 import { Button } from "./ui/button";
 export default function ReportsManagement() {
-  const [progress,setProgress]=useState({done:0,total:0});
+  const [progress,setProgress]=useState({done:0,total:0,unavailable:0});
   const [kind,setKind]=useState<"waste"|"inspection">("waste");
   const [counts,setCounts]=useState<{reports:number;photos:number}|null>(null);
   const [importBusy,setImportBusy]=useState(false);
@@ -13,9 +13,9 @@ export default function ReportsManagement() {
   const [error,setError]=useState("");
   const [downloading,setDownloading]=useState<"zip"|"xlsx"|null>(null);
   async function download(format:"zip"|"xlsx") {
-    setDownloading(format);setError("");setProgress({done:0,total:0});
+    setDownloading(format);setError("");setProgress({done:0,total:0,unavailable:0});
     try {
-      const blob=await downloadReportArchive(kind,format,(done,total)=>setProgress({done,total}));
+      const blob=await downloadReportArchive(kind,format,(done,total,unavailable=0)=>setProgress({done,total,unavailable}));
       const signature=new DataView(await blob.slice(-22).arrayBuffer());
       if(signature.byteLength!==22||signature.getUint32(0,true)!==0x06054b50||signature.getUint16(10,true)===0)throw new Error("The download is incomplete. Please retry.");
       const url=URL.createObjectURL(blob),link=document.createElement("a");
@@ -39,6 +39,7 @@ export default function ReportsManagement() {
       <div className="export-counts"><span><strong>{counts?.reports ?? "—"}</strong> reports</span><span><strong>{counts?.photos ?? "—"}</strong> photos</span></div>
       <p className="muted">Stored full-size images are downloaded unchanged. No additional resizing or compression.</p>
       <p className="export-example">{kind==="waste"?"COSA-102/COSA-102-01.jpg":"OFT-001/OFT-001-01.jpg"}</p>
+      {!downloading&&progress.total>0&&progress.done===progress.total&&!error&&<p role="status" className="notice">Download prepared: {progress.total-progress.unavailable} photos included.{progress.unavailable>0&&<> {progress.unavailable} original photos are temporarily unavailable from ImgBB. See the unavailable-photo list in the ZIP or marked rows in Excel; retry later for these images.</>}</p>}
       {error&&<p className="notice error" role="alert">{error}</p>}
       <Button disabled={!counts?.photos||!!downloading||importBusy} onClick={()=>download("zip")}><Download size={18}/>Download all photos (.zip)</Button>
       <Button disabled={!counts?.reports||!!downloading||importBusy} onClick={()=>download("xlsx")}><Download size={18}/>Export Excel (.xlsx)</Button>
