@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
       const photo=await db.one('SELECT p.url,r.number FROM record_photos p JOIN reports r ON r.id=p.report_id WHERE p.id=? AND r.kind=?',photoId,kind);
       if(!photo)throw new HttpError('Photo no longer exists in this category. Refresh and retry.',404);
       let upstream:Response;
-      try{upstream=await fetch(trustedPhotoUrl(photo.url),{redirect:'manual',signal:AbortSignal.any([req.signal,AbortSignal.timeout(60000)])});}catch{throw new HttpError('Image host did not respond. Retry the download.',502);}
+      try{const source=new URL(trustedPhotoUrl(photo.url));if(req.nextUrl.searchParams.get('fresh')==='1')source.searchParams.set('_oasis_export_retry',crypto.randomUUID());upstream=await fetch(source.href,{redirect:'manual',signal:AbortSignal.any([req.signal,AbortSignal.timeout(60000)])});}catch{throw new HttpError('Image host did not respond. Retry the download.',502);}
       const mime=upstream.headers.get('content-type')?.split(';')[0].trim().toLowerCase();
       if(!upstream.ok||!upstream.body||!['image/jpeg','image/png','image/webp','image/gif'].includes(mime||'')){await upstream.body?.cancel();throw new HttpError('Image host could not provide the original photo for '+photo.number+'.',502);}
       return new Response(upstream.body,{headers:{'Content-Type':mime!,'Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff'}});

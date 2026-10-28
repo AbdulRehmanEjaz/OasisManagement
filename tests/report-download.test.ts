@@ -28,5 +28,11 @@ test('Permanent image failure never produces a misleading partial archive',async
 for(const format of ['zip','xlsx'] as const)test(format+' clearly identifies host failures while preserving available original photos',async()=>{
  const photos=[{id:'one',number:'COSA-102',url:'https://i.ibb.co/test/one.jpg'},{id:'two',number:'COSA-103',url:'https://i.ibb.co/test/two.jpg'}];let missing=0;
  const request=(async(input)=>{const url=String(input);if(url.includes('manifest=1'))return Response.json(format==='zip'?{photos}:{reports:photos.map(p=>({number:p.number,created_at:'2026-10-24T12:00:00Z',latitude:26.5,longitude:37.9,photos:[p]}))});if(url.includes('two'))return Response.json({error:'Image host unavailable'},{status:503});return new Response(Uint8Array.from([255,216,255,217]),{headers:{'Content-Type':'image/jpeg'}});}) as typeof fetch;
- const blob=await downloadReportArchive('waste',format,(_done,_total,count)=>{missing=count||0;},request),files=unzipSync(new Uint8Array(await blob.arrayBuffer()));assert.equal(missing,1);assert.equal(Object.keys(files).filter(n=>n.endsWith('.jpg')).length,1);assert.match(strFromU8(files[format==='zip'?'_UNAVAILABLE_PHOTOS.txt':'xl/worksheets/sheet1.xml']),format==='zip'?/COSA-103/:/original photos unavailable/);
+ const blob=await downloadReportArchive('waste',format,(_done,_total,count)=>{missing=count||0;},request),files=unzipSync(new Uint8Array(await blob.arrayBuffer()));assert.equal(missing,1);assert.equal(Object.keys(files).filter(n=>n.endsWith('.jpg')).length,1);assert.match(strFromU8(files[format==='zip'?'_UNAVAILABLE_PHOTOS.txt':'xl/worksheets/sheet1.xml']),format==='zip'?/COSA-103/:/Original photos unavailable/);
+});
+
+
+test('Recovery retries uncached original URLs before declaring an image unavailable',async()=>{
+ let attempts=0;const request=(async(input)=>{const url=String(input);if(url.includes('manifest=1'))return Response.json({photos:[{id:'one',number:'OFT-007',url:'https://i.ibb.co/test/one.jpg'}]});if(url.startsWith('https://i.ibb.co/')){attempts++;if(attempts===6){assert.ok(url.includes('_oasis_export_retry='));return new Response(Uint8Array.from([255,216,255,217]),{headers:{'content-type':'image/jpeg'}});}}return Response.json({error:'Temporary failure'},{status:503});}) as typeof fetch;
+ const blob=await downloadReportArchive('inspection','zip',()=>{},request);assert.equal(attempts,6);assert.ok(unzipSync(new Uint8Array(await blob.arrayBuffer()))['OFT-007/OFT-007-01.jpg']);
 });

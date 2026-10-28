@@ -18,12 +18,13 @@ export async function downloadReportArchive(kind:'waste'|'inspection',format:'zi
  const fetchOriginal=(async(input:RequestInfo|URL,options?:RequestInit)=>{
   lastPhotoDownloaded=false;const id=ids.get(String(input));if(!id)throw new Error('Photo is not in the selected category.');
   let failure='Could not download an original photo.';
-  for(let attempt=0;attempt<3;attempt++){
+  for(let attempt=0;attempt<6;attempt++){
    options?.signal?.throwIfAborted();
+   if(attempt&&request===fetch)await new Promise(resolve=>setTimeout(resolve,Math.min(attempt*500,2000)));
    try{
     let response:Response;
-    try{response=await request(trustedPhotoUrl(String(input)),{credentials:'omit',redirect:'error',signal:options?.signal});if(!response.ok)throw new Error('Image host request failed.');}
-    catch{response=await request(`/api/report-photos?kind=${kind}&photo=${encodeURIComponent(id)}`,{cache:'no-store',credentials:'same-origin',signal:options?.signal});}
+    try{const source=new URL(trustedPhotoUrl(String(input)));if(attempt>=2)source.searchParams.set('_oasis_export_retry',String(Date.now())+'_'+attempt);response=await request(source.href,{credentials:'omit',redirect:'error',referrerPolicy:'no-referrer',...(attempt?{cache:'reload' as RequestCache}:{}),signal:options?.signal});if(!response.ok)throw new Error('Image host request failed.');}
+    catch{response=await request(`/api/report-photos?kind=${kind}&photo=${encodeURIComponent(id)}${attempt>=2?'&fresh=1':''}`,{cache:'no-store',credentials:'same-origin',signal:options?.signal});}
     if(!response.ok){const data=await response.json();failure=data.error||failure;if(response.status<500&&response.status!==429)throw new Error(failure);continue;}
     // Consume the body here so interrupted photo streams can be retried before adding to the archive.
     const bytes=await response.arrayBuffer();if(!bytes.byteLength){failure='Image host returned an empty photo.';continue;}
