@@ -242,6 +242,12 @@ try {
     const correctedExport=await request("/api/report-excel?kind=waste",null,adminCookie);const correctedWorkbook=unzipSync(new Uint8Array(await correctedExport.arrayBuffer()));check(strFromU8(correctedWorkbook["xl/worksheets/sheet1.xml"]).includes("26.75")&&strFromU8(correctedWorkbook["xl/worksheets/_rels/sheet1.xml.rels"]).includes("26.75,37.85"),"Excel and Google Maps links use Admin corrected location");
     const deleted=await request("/api/operations",{action:"record.delete",type:"waste",id:saved.id},adminCookie);check(deleted.status===200,"isolated imported fixture cleaned up");
   }
+  for(const endpoint of ['/api/report-photos?kind=waste&manifest=1','/api/report-excel?kind=waste&manifest=1','/api/report-photos?kind=waste&photo=00000000-0000-4000-8000-000000000001']){
+    check((await request(endpoint,null,viewerCookie)).status===403,'Viewer cannot access export manifest or original photo: '+endpoint);
+    check((await request(endpoint,null,supervisorCookie)).status===403,'Supervisor cannot access export manifest or original photo: '+endpoint);
+  }
+  check((await request('/api/report-photos?kind=waste&manifest=1',null,adminCookie)).status===200,'Admin can read paginated photo export manifest');
+  check((await request('/api/report-excel?kind=waste&manifest=1',null,adminCookie)).status===200,'Admin can read paginated Excel export manifest');
   check((await request("/api/report-excel?kind=waste",null,viewerCookie)).status===403,"viewer cannot export Excel");
   check((await request("/api/report-excel?kind=inspection",null,supervisorCookie)).status===403,"supervisor cannot export Excel");
   check((await request("/api/report-photos?kind=inspection&download=1",null,supervisorCookie)).status === 403, "supervisor cannot download admin photo archive");

@@ -1,9 +1,11 @@
 "use client";
 import { useEffect, useState } from "react";
 import { Download, Images, Recycle, Building2 } from "lucide-react";
+import {downloadReportArchive} from "@/lib/report-download";
 import ReportImport from "./report-import";
 import { Button } from "./ui/button";
 export default function ReportsManagement() {
+  const [progress,setProgress]=useState({done:0,total:0});
   const [kind,setKind]=useState<"waste"|"inspection">("waste");
   const [counts,setCounts]=useState<{reports:number;photos:number}|null>(null);
   const [importBusy,setImportBusy]=useState(false);
@@ -11,11 +13,9 @@ export default function ReportsManagement() {
   const [error,setError]=useState("");
   const [downloading,setDownloading]=useState<"zip"|"xlsx"|null>(null);
   async function download(format:"zip"|"xlsx") {
-    setDownloading(format);setError("");
+    setDownloading(format);setError("");setProgress({done:0,total:0});
     try {
-      const response=await fetch(format==="zip"?`/api/report-photos?kind=${kind}&download=1`:`/api/report-excel?kind=${kind}`,{cache:"no-store"});
-      if(!response.ok){const result=await response.json();throw new Error(result.error||"Download failed. Please retry.");}
-      const blob=await response.blob();
+      const blob=await downloadReportArchive(kind,format,(done,total)=>setProgress({done,total}));
       const signature=new DataView(await blob.slice(-22).arrayBuffer());
       if(signature.byteLength!==22||signature.getUint32(0,true)!==0x06054b50||signature.getUint16(10,true)===0)throw new Error("The download is incomplete. Please retry.");
       const url=URL.createObjectURL(blob),link=document.createElement("a");
@@ -30,7 +30,7 @@ export default function ReportsManagement() {
     return()=>{active=false;};
   },[kind,refresh]);
   return <section className="records-card export-panel">
-    <div className="segmented" role="tablist" aria-label="Report exports"><button disabled={importBusy} role="tab" aria-selected={kind==="waste"} className={kind==="waste"?"selected":""} onClick={()=>setKind("waste")}><Recycle size={17}/>Waste Tracking</button><button disabled={importBusy} role="tab" aria-selected={kind==="inspection"} className={kind==="inspection"?"selected":""} onClick={()=>setKind("inspection")}><Building2 size={17}/>Facilities Tracking</button></div>
+    <div className="segmented" role="tablist" aria-label="Report exports"><button disabled={importBusy||!!downloading} role="tab" aria-selected={kind==="waste"} className={kind==="waste"?"selected":""} onClick={()=>setKind("waste")}><Recycle size={17}/>Waste Tracking</button><button disabled={importBusy||!!downloading} role="tab" aria-selected={kind==="inspection"} className={kind==="inspection"?"selected":""} onClick={()=>setKind("inspection")}><Building2 size={17}/>Facilities Tracking</button></div>
     <div role="tabpanel" aria-label={kind==="waste"?"Waste Tracking":"Facilities Tracking"}>
       <ReportImport key={kind} kind={kind} onBusy={setImportBusy} onImported={()=>setRefresh(v=>v+1)}/>
       <span className="export-symbol"><Images size={28}/></span>
@@ -42,7 +42,7 @@ export default function ReportsManagement() {
       {error&&<p className="notice error" role="alert">{error}</p>}
       <Button disabled={!counts?.photos||!!downloading||importBusy} onClick={()=>download("zip")}><Download size={18}/>Download all photos (.zip)</Button>
       <Button disabled={!counts?.reports||!!downloading||importBusy} onClick={()=>download("xlsx")}><Download size={18}/>Export Excel (.xlsx)</Button>
-      {downloading&&<p role="status">Preparing your {downloading.toUpperCase()} download…</p>}
+      {downloading&&<p role="status">Preparing {downloading.toUpperCase()}: {progress.done} / {progress.total} photos downloaded…</p>}
       {counts?.photos===0&&<p className="muted">No photos have been submitted in this category yet.</p>}
       <p className="muted">Large downloads may take a few minutes. Your browser will show the download progress. Keep this tab open; retry if the image host cannot be reached.</p>
     </div>

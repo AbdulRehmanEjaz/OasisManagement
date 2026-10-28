@@ -1,0 +1,40 @@
+import {photoZip, trustedPhotoUrl, type ExportPhoto} from './photo-zip';
+import {reportExcel, type ExcelReport} from './report-excel';
+type Photo=ExportPhoto&{id:string};
+type Report=ExcelReport&{photos:{id:string;url:string}[]};
+export async function downloadReportArchive(kind:'waste'|'inspection',format:'zip'|'xlsx',progress:(done:number,total:number)=>void,request:typeof fetch=fetch):Promise<Blob>{
+ const photos:Photo[]=[],reports:Report[]=[];let cursor='';const seen=new Set<string>();
+ do{
+  const endpoint=format==='zip'?'/api/report-photos':'/api/report-excel';
+  const response=await request(`${endpoint}?kind=${kind}&manifest=1${cursor?'&cursor='+encodeURIComponent(cursor):''}`,{cache:'no-store',credentials:'same-origin'});
+  if(!response.ok)throw new Error((await response.json()).error||'Unable to load reports.');
+  const data=await response.json();
+  if(format==='zip')photos.push(...data.photos);else{reports.push(...data.reports);for(const r of data.reports)photos.push(...r.photos.map((p:{id:string;url:string})=>({...p,number:r.number})));}
+  cursor=data.nextCursor||'';if(cursor&&seen.has(cursor))throw new Error('Report listing changed. Refresh and retry.');seen.add(cursor);
+ }while(cursor);
+ if(format==='zip'&&!photos.length)throw new Error('There are no photos in this category.');
+ if(format==='xlsx'&&!reports.length)throw new Error('There are no reports in this category.');
+ const ids=new Map(photos.map(p=>[trustedPhotoUrl(p.url),p.id]));let done=0;progress(0,photos.length);
+ const fetchOriginal=(async(input:RequestInfo|URL,options?:RequestInit)=>{
+  const id=ids.get(String(input));if(!id)throw new Error('Photo is not in the selected category.');
+  let failure='Could not download an original photo.';
+  for(let attempt=0;attempt<3;attempt++){
+   options?.signal?.throwIfAborted();
+   try{
+    let response:Response;
+    try{response=await request(trustedPhotoUrl(String(input)),{credentials:'omit',redirect:'error',signal:options?.signal});if(!response.ok)throw new Error('Image host request failed.');}
+    catch{response=await request(`/api/report-photos?kind=${kind}&photo=${encodeURIComponent(id)}`,{cache:'no-store',credentials:'same-origin',signal:options?.signal});}
+    if(!response.ok){const data=await response.json();failure=data.error||failure;if(response.status<500&&response.status!==429)throw new Error(failure);continue;}
+    // Consume the body here so interrupted photo streams can be retried before adding to the archive.
+    const bytes=await response.arrayBuffer();if(!bytes.byteLength){failure='Image host returned an empty photo.';continue;}
+    progress(++done,photos.length);return new Response(bytes,{headers:{'Content-Type':response.headers.get('content-type')||''}});
+   }catch(e){if(options?.signal?.aborted)throw e;failure=(e as Error).message;}
+  }
+  throw new Error(failure+' No incomplete archive was saved. Please retry.');
+ }) as typeof fetch;
+ const signal=new AbortController().signal;
+ async function* entries<T>(rows:T[]){yield* rows;}
+ const stream=format==='zip'?photoZip(entries(photos),signal,fetchOriginal):reportExcel(kind,entries(reports),signal,fetchOriginal);
+ const parts:BlobPart[]=[];for await(const chunk of stream)parts.push(new Uint8Array(chunk));
+ return new Blob(parts,{type:format==='zip'?'application/zip':'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+}
