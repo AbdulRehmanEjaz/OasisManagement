@@ -33,11 +33,12 @@ export default function ReportForm({
   onSaved,
   onPhoto,
   enabled,
+  blocked=false,
   threshold,
   timezone,
   ownerId,
 }: {
-  kind: "waste" | "inspection" | "facility";
+  kind: "waste" | "inspection" | "facility" | "palms";
   facilities: Row[];
   users: Row[];
   options: Row[];
@@ -45,6 +46,7 @@ export default function ReportForm({
   onSaved: (r: Row) => void;
   onPhoto: (urls: string[], index: number) => void;
   enabled: boolean;
+  blocked?: boolean;
   threshold: number;
   timezone: string;
   ownerId: string;
@@ -236,6 +238,7 @@ export default function ReportForm({
         throw new Error(
           "Configure D1 and image hosting before submitting.",
         );
+      if(blocked)throw new Error("Report submissions are currently disabled by Admin.");
       if (kind !== "facility" && (!confirmed || !gps?.id))
         throw new Error(gpsBusy ? "Wait for location capture to finish." : !gps ? "Tap Get location, then confirm your position on the map." : gps.accuracy > threshold ? "Your GPS accuracy is not sufficient. Enable precise location and retry outdoors." : "Tap View Location, then Confirm This Location before submitting.");
       if (
@@ -311,7 +314,7 @@ export default function ReportForm({
   return (
     <Modal
       title={
-        kind === "waste"
+        kind === "palms" ? "New Date Palms report" : kind === "waste"
           ? "New waste report"
           : kind === "facility"
             ? "Register a facility"
@@ -337,7 +340,7 @@ export default function ReportForm({
             <span className="step-number">01</span>
             <div>
               <h3>
-                {kind === "waste"
+                {kind === "palms" ? "Date Palms information" : kind === "waste"
                   ? "Waste information"
                   : kind === "facility"
                     ? "Facility information"
@@ -347,7 +350,7 @@ export default function ReportForm({
             </div>
           </div>
           <div className="form-grid">
-            {kind === "waste" ? (
+            {kind === "palms" ? <>{input("site", "Site name (optional)", false)}</> : kind === "waste" ? (
               <>
                 {select("category", "Waste Type", [...submissionWasteTypes])}
                 {input("quantity", "Estimated Amount (KGs)", true, "number")}
@@ -508,18 +511,19 @@ export default function ReportForm({
           <ul>
             <li>{photos.some(p => p.busy) ? "Photos are still uploading." : photos.some(p => p.error || !p.id) ? "Retry or remove failed photo uploads." : photos.filter(p => p.id).length < (kind === "facility" ? 0 : 1) ? "Upload 1 site photo. A second and third photo are optional." : "Photos ready."}</li>
             {kind !== "facility" && <li>{gpsBusy ? gpsSaving ? "Saving location…" : "Finding your GPS location…" : !gps ? "Tap Get location to capture your position." : gps.accuracy > threshold ? `GPS accuracy is ±${Math.ceil(gps.accuracy)} m; required: within ${threshold} m. Enable precise location and retry outdoors.` : !gps.id ? "Location has not been saved. Tap Get location to retry." : !confirmed ? "Open View Location and tap Confirm This Location." : "Location confirmed and ready."}</li>}
+            {blocked&&<li>Report submissions are currently disabled by Admin.</li>}
             {!enabled && <li>Backend configuration is unavailable. Refresh the page or contact the administrator.</li>}
           </ul>
         </div>
         <footer className="form-footer">
           <small>
-            {kind === "facility"
+            {kind === "palms" ? "Find your submissions in My Date Palms Reports." : kind === "facility"
               ? "Facility reference records can be managed by administrators."
               : "Find your submissions in My Waste Reports or My Facilities Reports to review and edit them."}
           </small>
           <Button
             type="submit"
-            disabled={busy}
+            disabled={busy||blocked}
             aria-describedby="submission-checklist"
           >
             {busy

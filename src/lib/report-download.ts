@@ -2,7 +2,7 @@ import {photoZip, trustedPhotoUrl, type ExportPhoto} from './photo-zip';
 import {reportExcel, type ExcelReport} from './report-excel';
 type Photo=ExportPhoto&{id:string};
 type Report=ExcelReport&{photos:{id:string;url:string}[]};
-export async function downloadReportArchive(kind:'waste'|'inspection',format:'zip'|'xlsx',progress:(done:number,total:number,unavailable?:number)=>void,request:typeof fetch=fetch):Promise<Blob>{
+export async function downloadReportArchive(kind:'waste'|'inspection'|'palms',format:'zip'|'xlsx',progress:(done:number,total:number,unavailable?:number)=>void,request:typeof fetch=fetch):Promise<Blob>{
  const photos:Photo[]=[],reports:Report[]=[];let cursor='';const seen=new Set<string>();
  do{
   const endpoint=format==='zip'?'/api/report-photos':'/api/report-excel';

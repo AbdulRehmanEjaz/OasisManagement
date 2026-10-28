@@ -248,6 +248,18 @@ try {
   }
   check((await request('/api/report-photos?kind=waste&manifest=1',null,adminCookie)).status===200,'Admin can read paginated photo export manifest');
   check((await request('/api/report-excel?kind=waste&manifest=1',null,adminCookie)).status===200,'Admin can read paginated Excel export manifest');
+
+  check((await request('/api/operations?type=palms',null,adminCookie)).status===200,'Admin can list Date Palms reports');
+  check((await request('/api/report-photos?kind=palms',null,adminCookie)).status===200,'Admin can read Date Palms export counts');
+  check((await request('/api/report-excel?kind=palms&manifest=1',null,adminCookie)).status===200,'Admin can read Date Palms Excel manifest');
+  check((await request('/api/operations',{action:'control.save',kind:'palms',submission_enabled:false,viewer_enabled:false},viewerCookie)).status===403,'Viewer cannot change submission controls');
+  check((await request('/api/operations',{action:'control.save',kind:'palms',submission_enabled:false,viewer_enabled:false},supervisorCookie)).status===403,'Supervisor cannot change submission controls');
+  check((await request('/api/operations',{action:'control.save',kind:'palms',submission_enabled:false,viewer_enabled:false},adminCookie)).status===200,'Admin can block Date Palms submission and viewing');
+  check((await request('/api/operations?type=palms',null,viewerCookie)).status===403,'Viewer cannot bypass blocked Palm map/list API');
+  check((await request('/api/operations',{action:'report.submit',kind:'palms'},supervisorCookie)).status===403,'Supervisor cannot bypass blocked Palm submission API');
+  check((await request('/api/operations?type=palms',null,adminCookie)).status===200,'Admin still sees blocked Date Palms category');
+  check((await request('/api/operations',{action:'control.save',kind:'palms',submission_enabled:true,viewer_enabled:true},adminCookie)).status===200,'Admin can restore Date Palms access');
+  check((await request('/api/operations?type=palms',null,viewerCookie)).status===200,'Viewer can view restored Palm category');
   check((await request("/api/report-excel?kind=waste",null,viewerCookie)).status===403,"viewer cannot export Excel");
   check((await request("/api/report-excel?kind=inspection",null,supervisorCookie)).status===403,"supervisor cannot export Excel");
   check((await request("/api/report-photos?kind=inspection&download=1",null,supervisorCookie)).status === 403, "supervisor cannot download admin photo archive");

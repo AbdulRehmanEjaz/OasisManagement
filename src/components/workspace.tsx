@@ -35,10 +35,14 @@ import ReportForm from "./report-form";
 import RecordDetail from "./record-detail";
 import AccessManagement from "./access-management";
 import ReportsManagement from "./reports-management";
+import SubmissionControl from './submission-control';
+import PalmReports,{PalmDetail} from './palm-reports';
 import OverviewReportMap from "./overview-report-map";
 import { allowedViews, canReadReports, canSubmit } from "@/lib/access-policy";
 
 type View =
+  | "palms"
+  | "submission-control"
   | "dashboard"
   | "waste"
   | "facilities"
@@ -48,6 +52,8 @@ type View =
   | "settings"
   | "reports-management";
 const labels: Record<View, string> = {
+  palms:"Date Palms Tracking",
+  "submission-control":"Submission & View Control",
   dashboard: "Overview",
   waste: "Oasis Waste Tracking",
   facilities: "OnSite Facilities Tracking",
@@ -58,6 +64,8 @@ const labels: Record<View, string> = {
   "reports-management": "Reports Management",
 };
 const icons = {
+  palms:Leaf,
+  "submission-control":SlidersHorizontal,
   dashboard: LayoutDashboard,
   waste: Recycle,
   facilities: Building2,
@@ -68,21 +76,27 @@ const icons = {
 };
 export default function Workspace({
   profile,
+  initialControls=[],
   configured,
   timezone,
   gpsThreshold,
 }: {
   profile: Profile | null;
+  initialControls?:Row[];
   configured: boolean;
   timezone: string;
   gpsThreshold: number;
 }) {
+  const [controls,setControls]=useState<Row[]>(initialControls);
   const admin = profile?.role === "admin";
   const viewer = profile?.role === "viewer";
   const supervisorPanel = profile?.role === "supervisor";
   const browse = canReadReports(profile?.role || "");
   const submitAllowed = canSubmit(profile?.role || "");
-  const panelViews = allowedViews(profile?.role || "supervisor");
+  const categoryFor=(v:string)=>v==='waste'?'waste':v==='palms'?'palms':'inspection';
+  const canSubmitKind=(kind:string)=>admin||!!controls.find(c=>c.kind===kind)?.submission_enabled;
+  const viewEnabled=(v:string)=>!viewer||!['waste','inspections','facilities','palms'].includes(v)||!!controls.find(c=>c.kind===categoryFor(v))?.viewer_enabled;
+  const panelViews=allowedViews(profile?.role||'supervisor').filter(viewEnabled);
   const [view, setView] = useState<View>("dashboard"),
     [module, setModule] = useState<"waste" | "inspection">("waste"),
     [menu, setMenu] = useState(false),
@@ -101,7 +115,7 @@ export default function Workspace({
     [facilities, setFacilities] = useState<Row[]>([]),
     [users, setUsers] = useState<Row[]>([]),
     [options, setOptions] = useState<Row[]>([]),
-    [form, setForm] = useState<"waste" | "inspection" | "facility" | null>(
+    [form, setForm] = useState<"waste" | "inspection" | "facility" | "palms" | null>(
       null,
     ),
     [detail, setDetail] = useState<{ row: Row; type: string } | null>(null),
@@ -113,6 +127,8 @@ export default function Workspace({
     [deliveries, setDeliveries] = useState<Row[]>([]),
     [refresh, setRefresh] = useState(0),
     [now, setNow] = useState<Date | null>(null);
+  useEffect(()=>{let active=true;const load=()=>read('controls').then(d=>active&&setControls(d.data)).catch(()=>{});void load();const timer=setInterval(load,15000);window.addEventListener('focus',load);return()=>{active=false;clearInterval(timer);window.removeEventListener('focus',load);};},[refresh]);
+  useEffect(()=>{if(viewer&&!viewEnabled(view)){setView('dashboard');setRows([]);setDetail(null);}},[controls]);
   useEffect(() => {
     setNow(new Date());
     const q = new URLSearchParams(location.search);
@@ -123,7 +139,7 @@ export default function Workspace({
       configured &&
       browse &&
       id &&
-      ["waste", "inspections"].includes(v || "")
+      ["waste", "inspections", "palms"].includes(v || "")
     )
       read(v!, { id })
         .then((d) => d.data[0] && setDetail({ row: d.data[0], type: v! }))
@@ -171,7 +187,7 @@ export default function Workspace({
           if (view === "dashboard") {
             const d = await read("overview");
             if (alive) setOverview(d);
-          } else if (["settings", "reports-management"].includes(view)) {
+          } else if (["settings", "reports-management", "submission-control", "palms"].includes(view)) {
             /* Options loaded by the shared query. */
           } else {
             const d = await read(view, { search, category, supervisor, date, sort, page: String(page) });
@@ -244,7 +260,8 @@ export default function Workspace({
     "dashboard",
     "waste",
     "facilities",
-    ...(admin ? (["reports-management", "notifications", "users"] as View[]) : []),
+    "palms",
+    ...(admin ? (["reports-management", "submission-control", "notifications", "users"] as View[]) : []),
     "settings",
   ].filter((v) => panelViews.includes(v)) as View[];
   return (
@@ -410,7 +427,7 @@ export default function Workspace({
                     : supervisorPanel
                       ? "Submit site information, photos, and verified locations."
                       : "Manage records, users, and panel access."
-                  : view === "waste"
+                  : view === "palms" ? "Record date palm photographs and GPS locations." : view === "submission-control" ? "Manage submission and Viewer access for each Survey category." : view === "waste"
                     ? viewer
                       ? "Review waste reports and site locations."
                       : "Submit, review, and manage waste reports."
@@ -429,20 +446,20 @@ export default function Workspace({
             </div>
             {submitAllowed && (
               <div className="heading-actions">
-                {supervisorPanel && <div className="segmented supervisor-report-tabs" role="tablist" aria-label="My reports"><button role="tab" aria-selected={view === "waste"} className={view === "waste" ? "selected" : ""} onClick={() => navigate("waste")}>My Waste Reports</button><button role="tab" aria-selected={view === "inspections"} className={view === "inspections" ? "selected" : ""} onClick={() => navigate("inspections")}>My Facilities Reports</button></div>}
+                {supervisorPanel && <div className="segmented supervisor-report-tabs" role="tablist" aria-label="My reports"><button role="tab" aria-selected={view === "waste"} className={view === "waste" ? "selected" : ""} onClick={() => navigate("waste")}>My Waste Reports</button><button role="tab" aria-selected={view === "inspections"} className={view === "inspections" ? "selected" : ""} onClick={() => navigate("inspections")}>My Facilities Reports</button><button role="tab" aria-selected={view==="palms"} onClick={()=>navigate("palms")}>My Date Palms Reports</button></div>}
           {view === "dashboard" ? (
                   <Button onClick={() => setChooser(true)}>
                     <Plus size={18} />
                     New report
                   </Button>
-                ) : ["waste", "inspections"].includes(view) ? (
-                  <Button
+                ) : ["waste", "inspections", "palms"].includes(view) ? (
+                  <Button disabled={!canSubmitKind(categoryFor(view))}
                     onClick={() =>
-                      setForm(view === "waste" ? "waste" : "inspection")
+                      setForm(view === "palms" ? "palms" : view === "waste" ? "waste" : "inspection")
                     }
                   >
                     <Plus size={18} />
-                    {view === "waste" ? "New waste report" : "New inspection"}
+                    {view === "palms" ? "New Date Palms report" : view === "waste" ? "New waste report" : "New inspection"}
                   </Button>
                 ) : view === "facilities" ? (
                   <Button
@@ -466,7 +483,7 @@ export default function Workspace({
           )}
           {view === "dashboard" ? (
             <>
-              {browse && configured && <OverviewReportMap refresh={refresh} onSelect={(row, type) => setDetail({row, type})} />}
+              {browse && configured && <OverviewReportMap allowed={admin?['waste','inspections','palms']:['waste','inspections','palms'].filter(viewEnabled)} refresh={refresh} onSelect={(row, type) => setDetail({row, type})} />}
               {!browse && <div className="modules-grid">
                 <article className="module-card waste-module">
                   <div className="module-header">
@@ -543,9 +560,10 @@ export default function Workspace({
                     )}
                   </footer>
                 </article>
+                <article className="module-card waste-module"><div className="module-header"><span className="module-icon"><Leaf size={28}/></span><span className="pill">DPT</span></div><div className="module-copy"><h2>Date Palms Tracking</h2><p>Record date palm photographs and GPS locations.</p></div><footer><Button disabled={!canSubmitKind('palms')} onClick={()=>setForm('palms')}>New Date Palms report <Plus size={18}/></Button><Button variant="ghost" onClick={()=>navigate('palms')}>My reports <ArrowUpRight size={18}/></Button></footer></article>
               </div>}
             </>
-          ) : view === "reports-management" && admin ? (
+          ) : view === "palms" ? <PalmReports refresh={refresh} onSelect={row=>setDetail({row,type:'palms'})}/> : view === 'submission-control'&&admin ? <SubmissionControl controls={controls} onSaved={reload}/> : view === "reports-management" && admin ? (
             <ReportsManagement />
           ) : view === "users" && admin ? (
             <AccessManagement profile={profile} onChange={reload} />
@@ -1049,7 +1067,7 @@ export default function Workspace({
         <Modal title="Start a field report" onClose={() => setChooser(false)}>
           <p className="muted">Choose the module for your site visit.</p>
           <button
-            className="choice-card"
+            className="choice-card" disabled={!canSubmitKind("waste")}
             onClick={() => {
               setModule("waste");
               setChooser(false);
@@ -1064,7 +1082,7 @@ export default function Workspace({
             <ArrowUpRight />
           </button>
           <button
-            className="choice-card"
+            className="choice-card" disabled={!canSubmitKind("inspection")}
             onClick={() => {
               setModule("inspection");
               setChooser(false);
@@ -1078,6 +1096,7 @@ export default function Workspace({
             </div>
             <ArrowUpRight />
           </button>
+          <button className="choice-card" disabled={!canSubmitKind("palms")} onClick={()=>{setChooser(false);setForm("palms");}}><Leaf size={26}/><div><strong>Date Palms Tracking</strong><small>Collect date palm photographs and GPS location</small></div><ArrowUpRight/></button>
         </Modal>
       )}
       {form && (
@@ -1088,6 +1107,7 @@ export default function Workspace({
           users={users}
           options={options}
           enabled={configured}
+          blocked={!canSubmitKind(form==="facility"?"inspection":form)}
           threshold={gpsThreshold}
           timezone={timezone}
           ownerId={profile?.id || "setup"}
@@ -1145,7 +1165,7 @@ export default function Workspace({
                 onClick={async () => {
                   try {
                     const type =
-                      success.kind === "waste"
+                      success.kind === "palms" ? "palms" : success.kind === "waste"
                         ? "waste"
                         : success.kind === "facility"
                           ? "facilities"
@@ -1165,7 +1185,8 @@ export default function Workspace({
           </div>
         </Modal>
       )}
-      {detail && (
+      {detail?.type==="palms"&&<PalmDetail row={detail.row} admin={admin} onClose={()=>setDetail(null)} onChanged={reload}/>}
+      {detail && detail.type!=="palms" && (
         <RecordDetail
           record={detail.row}
           type={detail.type}

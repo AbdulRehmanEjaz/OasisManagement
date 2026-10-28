@@ -2614,3 +2614,4 @@ body:has(.operations-hub) { background: #f5f2e9; }
 .import-preview p, .import-errors { white-space: pre-wrap; overflow-wrap: anywhere; }
 @media (max-width:640px) { .import-actions .btn { width: 100%; justify-content: center; } }
 .admin-location-form { margin-top: 16px; padding: 16px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
+.survey-control-row{display:flex;align-items:center;flex-wrap:wrap;gap:12px;padding:20px 0;border-top:1px solid var(--line)}.survey-control-row>strong{flex:1;min-width:180px}.palm-photo-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin:18px 0}.palm-photo-grid img{width:100%;max-height:400px;object-fit:contain;border-radius:12px}.choice-card:disabled{opacity:.45;cursor:not-allowed}

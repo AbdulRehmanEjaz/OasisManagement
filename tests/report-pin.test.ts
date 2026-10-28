@@ -12,3 +12,5 @@ test("Map label reflects renumbering and never inserts arbitrary HTML",()=>{
  assert.equal(reportPinLabel("OFT-002"),"02");assert.equal(reportPinLabel("OFT-001"),"01");
  for(const value of [undefined,null,"",'<img src=x onerror=alert(1)>',"OTHER-001"])assert.equal(reportPinLabel(value),"•");
 });
+
+test('Date Palm map pins follow their DPT report code',()=>{assert.equal(reportPinLabel('DPT-001'),'01');assert.equal(reportPinLabel('DPT-012'),'12');});

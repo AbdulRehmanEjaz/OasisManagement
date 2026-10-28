@@ -1,3 +1,4 @@
+import {assertSurveyAccess,surveyControls,readPalms} from './survey-controls';
 import { reportLocation } from "./report-location";
 import { z } from "zod";
 import { D1Store, HttpError, type Actor, type Data } from "./d1-store";
@@ -30,6 +31,9 @@ export async function readRecords(
   q: URLSearchParams,
 ): Promise<Data> {
   if(actor.dashboard!=="survey"||db.dashboard!=="survey")throw new HttpError("FORBIDDEN",403);
+  if(type==='controls')return {data:await surveyControls(db)};
+  if(type==='palms')return readPalms(db,actor,q);
+  if(['waste','inspections','facilities'].includes(type))await assertSurveyAccess(db,actor,type==='waste'?'waste':'inspection','view');
   if (!canReadType(actor.role, type)) throw new HttpError("FORBIDDEN", 403);
   if (actor.role === "supervisor" && type === "facilities") {
     const data = await db.all(
@@ -53,6 +57,10 @@ export async function readRecords(
     const recent = await db.all(
       "SELECT id,number,category,condition,created_at FROM reports ORDER BY created_at DESC LIMIT 5",
     );
+    if(actor.role==='viewer'){
+      const controls=await surveyControls(db),allowed=(kind:string)=>!!controls.find(c=>c.kind===kind)?.viewer_enabled;
+      return {waste:allowed('waste')?counts?.waste:0,inspections:allowed('inspection')?counts?.inspections:0,facilities:allowed('inspection')?counts?.facilities:0,recent:[]};
+    }
     return {
       ...counts,
       recent,
@@ -256,6 +264,7 @@ export async function submitReport(db: D1Store, actor: Actor, input: unknown) {
   if (!canSubmit(actor.role)) throw new HttpError("FORBIDDEN", 403);
   // Device-provided dates are never trusted as the submission date.
   const p = reportSchema.parse({ ...(input as Data), ...((input as Data).kind === "waste" ? { unit: "Kilograms (kg)" } : {}), inspection_date: submissionDate() });
+  await assertSurveyAccess(db,actor,p.kind,'submit');
   const previous = () =>
     db.one(
       "SELECT id,number,created_at FROM reports WHERE supervisor_id=? AND idempotency_key=? AND kind=?",
@@ -337,6 +346,7 @@ export async function registerFacility(
 }
 export async function updateRecord(db: D1Store, actor: Actor, input: Data) {
   if (!["admin", "supervisor"].includes(actor.role)) throw new HttpError("FORBIDDEN", 403);
+  if(actor.role==='supervisor')await assertSurveyAccess(db,actor,input.type==='waste'?'waste':'inspection','submit');
   const type = z.enum(["waste", "facilities", "inspections"]).parse(input.type),
     id = z.uuid().parse(input.id),
     table = type === "facilities" ? "facilities" : "reports";

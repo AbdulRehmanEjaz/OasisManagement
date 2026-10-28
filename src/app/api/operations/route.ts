@@ -1,3 +1,4 @@
+import {saveSurveyControl,submitPalms,changePalms} from '@/lib/survey-controls';
 import { NextRequest } from "next/server";
 import { z } from "zod";
 import { requireUser } from "@/lib/backend";
@@ -40,9 +41,11 @@ export async function POST(req: NextRequest) {
       action = z.enum([
         "location.capture", "location.view", "location.confirm", "report.submit",
         "facility.create", "record.update", "record.location.update", "record.delete", "notification.read",
-        "delivery.retry", "option.add", "option.toggle",
+        "delivery.retry", "option.add", "option.toggle", "control.save",
       ]).parse(input.action);
     await db.limit("operation:" + profile.id + ":" + action, 40);
+    if(action==='control.save')return json(await saveSurveyControl(db,profile,input));
+    if(input.type==='palms'&&['record.update','record.delete'].includes(action))return json(await changePalms(db,profile,input));
     if (action === "location.capture")
       return json(await captureLocation(db, profile, input));
     if (action === "location.view" || action === "location.confirm")
@@ -50,6 +53,7 @@ export async function POST(req: NextRequest) {
         await verifyLocation(db, profile, action, z.uuid().parse(input.id)),
       );
     if (action === "report.submit") {
+      if(input.kind==='palms')return json(await submitPalms(db,profile,input));
       const data = await submitReport(db, profile, input);
       await sendNotification(db, data.id);
       return json({

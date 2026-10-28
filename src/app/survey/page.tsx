@@ -1,3 +1,5 @@
+import {store} from '@/lib/backend';
+import {surveyControls} from '@/lib/survey-controls';
 import { requirePanel } from "@/lib/panels";
 import { redirect } from "next/navigation";
 import Workspace from "@/components/workspace";
@@ -12,6 +14,7 @@ export default async function Home() {
   const { tokenHash: _, ...safeProfile } = profile;
   return (
     <Workspace
+      initialControls={await surveyControls(await store())}
       profile={safeProfile}
       configured={true}
       timezone={process.env.APP_TIMEZONE || "Asia/Riyadh"}

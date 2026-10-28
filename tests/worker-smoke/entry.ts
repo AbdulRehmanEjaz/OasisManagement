@@ -1,3 +1,4 @@
+import {saveSurveyControl,submitPalms,readPalms,changePalms} from '../../src/lib/survey-controls';
 import {importKpiReport} from '../../src/lib/kpi/import-store';
 import {unlockKpiDailySubmission,saveKpiFormSettings,createKpiReport,readKpiReports,updateKpiReport,deleteKpiReport,kpiEntrySchema} from "../../src/lib/kpi/store";
 import {calculateDashboard,saudiDate} from "../../src/lib/kpi/calculations";
@@ -415,6 +416,32 @@ export default {
       assert((await db.one("SELECT count(*) n FROM delivery_attempts WHERE record_id=?",facilityImport.id))?.n===0,"bulk imports do not queue unwanted emails");
       await deleteRecord(db,admin,{type:"waste",id:imported.id});
       await deleteRecord(db,admin,{type:"inspections",id:facilityImport.id});
+
+      await rejects(()=>saveSurveyControl(db,viewer,{kind:'palms',submission_enabled:false,viewer_enabled:false}),'Viewer cannot change Survey controls');
+      await rejects(()=>saveSurveyControl(db,supervisor,{kind:'palms',submission_enabled:false,viewer_enabled:false}),'Supervisor cannot change Survey controls');
+      await rejects(()=>db.stmt("UPDATE survey_report_controls SET viewer_enabled=0 WHERE kind='palms'").run(),'D1 rejects unguarded category-control changes');
+      const palmInput={location_id:await location(supervisor),photo_ids:(await photos(supervisor)).slice(0,1),idempotency_key:crypto.randomUUID(),site:'Palm grove'};
+      await rejects(()=>submitPalms(db,viewer,palmInput),'Viewer cannot submit Date Palms');
+      const [palm,palmRetry]=await Promise.all([submitPalms(db,supervisor,palmInput),submitPalms(db,supervisor,palmInput)]);
+      assert(palm.number==='DPT-001'&&palm.id===palmRetry.id,'Date Palms numbering and concurrent idempotency are atomic');
+      const palmView=await readPalms(db,viewer,new URLSearchParams());assert(palmView.count===1&&palmView.data[0].waste_report_photos.length===1&&!('supervisor_id' in palmView.data[0]),'Viewer sees Palm photos and GPS without user identity');
+      assert((await readPalms(db,other,new URLSearchParams())).count===0,'Supervisors see only their own Date Palms reports');
+      await rejects(()=>submitPalms(db,supervisor,{...palmInput,idempotency_key:crypto.randomUUID()}),'Palms cannot reuse consumed GPS or photos');
+      await saveSurveyControl(db,admin,{kind:'palms',submission_enabled:false,viewer_enabled:false});
+      await rejects(()=>readPalms(db,viewer,new URLSearchParams()),'Palm view switch blocks Viewer API access');
+      await rejects(()=>submitPalms(db,supervisor,{...palmInput,idempotency_key:crypto.randomUUID()}),'Palm submission switch blocks Supervisor API access');
+      assert((await readPalms(db,admin,new URLSearchParams())).count===1,'Admin retains access to blocked categories');
+      await rejects(()=>changePalms(db,supervisor,{action:'record.delete',id:palm.id}),'Supervisor cannot delete Palm records');
+      await changePalms(db,admin,{action:'record.update',id:palm.id,patch:{site:'Edited palm grove',description:'Updated',latitude:26.7,longitude:37.8}});
+      assert((await readPalms(db,admin,new URLSearchParams())).data[0].latitude===26.7,'Admin can update Palm notes and location');
+      for(const [kind,type]of [['waste','waste'],['inspection','inspections']]){
+       await saveSurveyControl(db,admin,{kind,submission_enabled:false,viewer_enabled:false});
+       await rejects(()=>readRecords(db,viewer,type,new URLSearchParams()),'Viewer cannot read blocked '+kind+' category');
+       await rejects(()=>submitReport(db,supervisor,{...input,kind,idempotency_key:crypto.randomUUID()}),'Supervisor cannot submit blocked '+kind+' category');
+       await saveSurveyControl(db,admin,{kind,submission_enabled:true,viewer_enabled:true});
+      }
+      await changePalms(db,admin,{action:'record.delete',id:palm.id});assert((await readPalms(db,admin,new URLSearchParams())).count===0,'Admin Palm deletion retains history and removes active report');
+      await saveSurveyControl(db,admin,{kind:'palms',submission_enabled:true,viewer_enabled:true});
       const surveyDB=db,surveyAdmin=admin;
       {
       const db=new D1Store((env as unknown as {DB:D1Database}).DB,'isolated-test-secret-not-a-production-secret','kpi');
