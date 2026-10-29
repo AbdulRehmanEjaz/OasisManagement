@@ -6,6 +6,7 @@ import {PROJECT,ACTIVITY_FIELDS,FIELD_HINTS,type DailyKpiReport} from '@/lib/kpi
 import {AR_FIELDS,AR_TEXT,AR_HINTS,SUBMITTED,SUBMITTED_AR,type Language} from '@/lib/kpi/language';
 import {projectDate,saudiDate} from '@/lib/kpi/calculations';
 import type {Profile,Row} from '@/lib/client';
+import WasteVolume from './waste-volume';
 import Modal from '../modal';import {Button} from '../ui/button';
 export default function KpiReportForm({profile,supervisors,record,onClose,onSaved,inline=false,language='en',settings={}}:{profile:Profile;supervisors:Row[];record?:DailyKpiReport;onClose:()=>void;onSaved:()=>void;inline?:boolean;language?:Language;settings?:FormSettings}){
  const [submittedAt,setSubmittedAt]=useState<string|null>(null);
@@ -32,7 +33,7 @@ export default function KpiReportForm({profile,supervisors,record,onClose,onSave
    <div><dt>اسم المشرف | Supervisor</dt><dd>{profile.full_name}</dd></div>
    <div><dt>تاريخ النشاط | Activity date</dt><dd>{reportDate}</dd></div>
    {!settings.location?.hidden&&<div><dt>{settings.location?.ar||'الموقع'} | {settings.location?.en||'Location'}</dt><dd>{location}</dd></div>}
-   {ACTIVITY_FIELDS.filter(f=>!settings[f.key]?.hidden).map(f=><div key={f.key}><dt>{settings[f.key]?.ar||AR_FIELDS[f.key]} | {settings[f.key]?.en||f.label}</dt><dd>{Number(values[f.key]).toLocaleString(ar?'ar-SA':'en-GB')} <small>{ar?AR_TEXT[f.unit]:f.unit}</small></dd></div>)}
+   {ACTIVITY_FIELDS.filter(f=>!settings[f.key]?.hidden).map(f=><div key={f.key}><dt>{settings[f.key]?.ar||AR_FIELDS[f.key]} | {settings[f.key]?.en||f.label}</dt><dd>{f.key==='dayna_trips'||f.key==='truck_trips'?<WasteVolume report={{id:key,project_id:PROJECT.id,report_date:reportDate,...values}} field={f.key} ar={ar}/>:<>{Number(values[f.key]).toLocaleString(ar?'ar-SA':'en-GB')} <small>{ar?AR_TEXT[f.unit]:f.unit}</small></>}</dd></div>)}
    {settings.custom?.filter(f=>!f.hidden).map(f=><div key={f.id}><dt>{f.ar} | {f.en}</dt><dd>{custom[f.id]||'—'}</dd></div>)}
    {!settings.notes?.hidden&&<div><dt>{settings.notes?.ar||'ملاحظات'} | {settings.notes?.en||'Notes'}</dt><dd>{notes||'—'}</dd></div>}
   </dl><Button type="button" onClick={onSaved}>خروج | Exit</Button>
