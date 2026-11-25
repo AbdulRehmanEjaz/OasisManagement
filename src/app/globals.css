@@ -2504,7 +2504,7 @@ body:has(.operations-hub) { background: #f5f2e9; }
 .hub-intro h1 { margin:0; font-size:clamp(36px,4.2vw,60px); font-weight:600; line-height:1.08; letter-spacing:-2.7px; }
 .hub-intro em { font-style:normal; color:#768e60; }
 .hub-intro > p { position:absolute; right:0; bottom:40px; margin:0; max-width:350px; color:#748071; font-size:14px; line-height:1.8; }
-.hub-cards { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:24px; }
+.hub-cards { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:20px; }
 .hub-card { display:flex; flex-direction:column; min-width:0; border:1px solid #dce2d5; border-radius:22px; overflow:hidden; background:#fffef8; text-decoration:none; transition:transform .2s,box-shadow .2s; }
 .hub-card-active { border-color:#849a76; box-shadow:0 12px 32px #25472e0a; }
 .hub-card-active:hover { transform:translateY(-5px); box-shadow:0 20px 45px #25472e1a; }
@@ -2526,7 +2526,7 @@ body:has(.operations-hub) { background: #f5f2e9; }
 .hub-footer { display:flex; justify-content:space-between; gap:16px; padding:26px 0 0; font-size:10px; letter-spacing:.2px; color:#85917f; }
 .hub-footer > span:last-child { display:flex; gap:6px; align-items:center; }
 .hub-return { position:fixed; bottom:10px; left:25px; z-index:35; font-size:11px; color:var(--ink); background:var(--surface); padding:6px 10px; border:1px solid var(--line); border-radius:20px; text-decoration:none; }
-@media (max-width:1050px) { .operations-hub { padding:26px 32px; } .hub-intro > p { position:static; margin-top:22px; max-width:none; } .hub-intro { padding:36px 0 28px; } .hub-cards { gap:16px; } .hub-card-content { padding:18px; } .hub-intro h1 { font-size:45px; } .hub-card h2 { font-size:19px; } }
+@media (max-width:1050px) { .operations-hub { padding:26px 32px; } .hub-intro > p { position:static; margin-top:22px; max-width:none; } .hub-intro { padding:36px 0 28px; } .hub-cards { grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; } .hub-card-content { padding:18px; } .hub-intro h1 { font-size:45px; } .hub-card h2 { font-size:19px; } }
 @media (max-width:760px) { .operations-hub { padding:20px; } .hub-cards { grid-template-columns:1fr; max-width:520px; margin:auto; gap:22px; } .hub-intro h1 { font-size:42px; letter-spacing:-1.8px; } .hub-intro > p { font-size:13px; } .hub-card-content { padding:23px; } .hub-card h2 { font-size:23px; } .hub-card-art { max-height:230px; } .hub-header-note { font-size:10px; } .hub-footer { flex-direction:column; align-items:center; text-align:center; padding-top:26px; } .hub-return { left:auto; right:12px; bottom:78px; } .hub-desktop-break { display:none; } }
 @media (prefers-reduced-motion:reduce) { .hub-card { transition:none; } .hub-card-active:hover { transform:none; } }
 
