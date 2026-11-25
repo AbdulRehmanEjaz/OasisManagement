@@ -1,12 +1,12 @@
 import HubClock from "@/components/hub-clock";
-import { ArrowUpRight, LockKeyhole, Recycle, Sprout, HardHat, MapPin } from "lucide-react";
+import { ArrowUpRight, LockKeyhole, Recycle, Sprout, HardHat, MapPin, Truck } from "lucide-react";
 import { redirect } from "next/navigation";
 export const metadata = { title: "Oasis · Operations Hub", description: "Your connected workspace for field operations, farm performance, and workforce management." };
-function Scene({ kind }: {kind: "field" | "farms" | "people"}) {
+function Scene({ kind }: {kind: "field" | "farms" | "people" | "fleet"}) {
  return <svg viewBox="0 0 440 250" fill="none" aria-hidden="true" className="hub-scene">
- <defs><linearGradient id={kind+"sky"} x1="220" y1="0" x2="220" y2="250" gradientUnits="userSpaceOnUse"><stop stopColor={kind==="field"?"#e9d5aa":"#dde4df"}/><stop offset="1" stopColor={kind==="field"?"#f8edcf":"#f2f3ed"}/></linearGradient></defs>
- <rect width="440" height="250" fill={"url(#"+kind+"sky)"}/><circle cx="344" cy="51" r="24" fill={kind==="field"?"#fcf2cf":"#f9f9f3"}/>
- <path d="M0 155L48 92 76 108 108 58 145 76 182 138 236 104 292 145 334 95 376 125 440 85V250H0Z" fill={kind==="field"?"#b98b61":"#b9c4b8"}/><path d="M0 186L80 143 140 170 227 138 294 176 364 145 440 166V250H0Z" fill={kind==="field"?"#7a8e61":"#8d9e8b"}/>
+ <defs><linearGradient id={kind+"sky"} x1="220" y1="0" x2="220" y2="250" gradientUnits="userSpaceOnUse"><stop stopColor={kind==="field"||kind==="fleet"?"#e9d5aa":"#dde4df"}/><stop offset="1" stopColor={kind==="field"||kind==="fleet"?"#f8edcf":"#f2f3ed"}/></linearGradient></defs>
+ <rect width="440" height="250" fill={"url(#"+kind+"sky)"}/><circle cx="344" cy="51" r="24" fill={kind==="field"||kind==="fleet"?"#fcf2cf":"#f9f9f3"}/>
+ <path d="M0 155L48 92 76 108 108 58 145 76 182 138 236 104 292 145 334 95 376 125 440 85V250H0Z" fill={kind==="field"||kind==="fleet"?"#b98b61":"#b9c4b8"}/><path d="M0 186L80 143 140 170 227 138 294 176 364 145 440 166V250H0Z" fill={kind==="field"||kind==="fleet"?"#7a8e61":"#8d9e8b"}/>
  {kind==="field"?<>
  <path d="M0 205Q122 164 232 210T440 194V250H0Z" fill="#265b42"/><path d="M0 236Q117 192 238 235T440 224V250H0Z" fill="#173f30"/>
  <path d="M106 190L111 106M109 119Q72 93 54 122M110 115Q97 72 68 84M111 111Q133 73 155 88M112 119Q147 99 168 127" stroke="#284d35" strokeWidth="7" strokeLinecap="round"/>
@@ -17,6 +17,12 @@ function Scene({ kind }: {kind: "field" | "farms" | "people"}) {
  <path d="M0 210L159 160 440 208V250H0Z" fill="#748b70"/><path d="M-10 241L172 177M55 255L211 185M135 261L251 194M222 260L297 203M311 264L344 212" stroke="#d4dec6" strokeWidth="10"/>
  <rect x="246" y="58" width="142" height="103" rx="14" fill="#f6f7f1" stroke="#a5b5a1"/><path d="M268 135V114M294 135V99M320 135V107M346 135V80" stroke="#7c9677" strokeWidth="12" strokeLinecap="round"/><path d="M265 87L295 73 320 81 351 61" stroke="#bcaa76" strokeWidth="3" strokeLinecap="round"/>
  <path d="M103 191V148M103 166Q75 163 79 143Q105 141 103 166ZM105 153Q108 127 130 130Q135 151 105 153Z" stroke="#d1ddc7" strokeWidth="4" fill="#a4ba93"/>
+ </>:kind==="fleet"?<>
+ <path d="M0 212Q160 192 440 208V250H0Z" fill="#265b42"/><path d="M0 226H440V250H0Z" fill="#173f30"/>
+ <path d="M24 237H76M116 237H168M208 237H260M300 237H352M392 237H430" stroke="#d8c593" strokeWidth="4" strokeLinecap="round"/>
+ <rect x="96" y="150" width="154" height="54" rx="8" fill="#f5e8cd"/><path d="M250 162H312L334 184V204H250V162Z" fill="#237c46"/><path d="M262 170H304L320 185H262V170Z" fill="#dce8df"/>
+ <circle cx="142" cy="206" r="18" fill="#193b29"/><circle cx="142" cy="206" r="8" fill="#e9d5aa"/>
+ <circle cx="294" cy="206" r="18" fill="#193b29"/><circle cx="294" cy="206" r="8" fill="#e9d5aa"/>
  </>:<>
  <path d="M0 216Q142 180 440 205V250H0Z" fill="#a0aa9b"/>
  <rect x="232" y="174" width="105" height="32" rx="16" fill="#657465"/><circle cx="254" cy="190" r="7" fill="#d8ded1"/><circle cx="315" cy="190" r="7" fill="#d8ded1"/>
@@ -38,6 +44,7 @@ export default async function Home({searchParams}:{searchParams:Promise<Record<s
  <a className="hub-card hub-card-active" href="/survey"><div className="hub-card-art"><Scene kind="field"/><span className="hub-status"><span/>Available now</span><span className="hub-card-index">01</span></div><div className="hub-card-content"><div className="hub-icon"><Recycle size={23}/><MapPin size={16}/></div><h2>Oasis Domestic Waste<br/>&amp; Site Survey</h2><p>Report waste, document site facilities, and see every observation on the map.</p><div className="hub-tags"><span>Waste reporting</span><span>Site survey</span></div><footer><span>Open dashboard</span><span className="hub-open"><ArrowUpRight size={22}/></span></footer></div></a>
  <a className="hub-card hub-card-active" href="/kpi"><div className="hub-card-art"><Scene kind="farms"/><span className="hub-status"><span/>Available now</span><span className="hub-card-index">02</span></div><div className="hub-card-content"><div className="hub-icon"><Sprout size={25}/></div><h2>Oasis Active Farms<br/>KPIs &amp; Performance Tracking</h2><p>A clearer view of active farms, operational performance, and progress in the oasis.</p><div className="hub-tags"><span>Farm KPIs</span><span>Performance</span></div><footer><span>Open dashboard</span><span className="hub-open"><ArrowUpRight size={22}/></span></footer></div></a>
  <article className="hub-card hub-card-soon" aria-disabled="true"><div className="hub-card-art"><Scene kind="people"/><span className="hub-status"><LockKeyhole size={12}/>Coming soon</span><span className="hub-card-index">03</span></div><div className="hub-card-content"><div className="hub-icon"><HardHat size={25}/></div><h2>Manpower &amp; Equipment<br/>Management</h2><p>Bring teams, equipment, and daily resource planning together in one place.</p><div className="hub-tags"><span>Workforce</span><span>Equipment</span></div><footer><span>Taking shape</span><LockKeyhole size={18}/></footer></div></article>
+ <a className="hub-card hub-card-active" href="/fleet"><div className="hub-card-art"><Scene kind="fleet"/><span className="hub-status"><span/>Available now</span><span className="hub-card-index">04</span></div><div className="hub-card-content"><div className="hub-icon"><Truck size={25}/></div><h2>Vehicles<br/>Management</h2><p>Track fleet vehicles, drivers, monthly rent, project assignments, and fuel card limits.</p><div className="hub-tags"><span>Fleet</span><span>Fuel cards</span></div><footer><span>Open dashboard</span><span className="hub-open"><ArrowUpRight size={22}/></span></footer></div></a>
  </section>
  <footer className="hub-footer"><small className="hub-credits">©AbdulRehman Ejaz - ADVACON Co. Ltd.®</small></footer>
  </main>;

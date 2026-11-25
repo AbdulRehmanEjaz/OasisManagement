@@ -1,0 +1,250 @@
+import "server-only";
+import { cookies } from "next/headers";
+import { randomBytes } from "node:crypto";
+import type { D1Database } from "@cloudflare/workers-types";
+import { z } from "zod";
+import { getBindings } from "@/lib/runtime";
+import { HttpError, pinSchema, tokenHash } from "@/lib/d1-store";
+
+export type FleetRole = "admin" | "viewer";
+export type FleetProfile = { role: FleetRole; full_name: string };
+
+export type FleetVehicle = {
+  id: string;
+  vehicle_name: string;
+  model: string;
+  plate_number: string;
+  fuel_type: string;
+  owner: string;
+  monthly_rent_type: "N/A" | "amount";
+  monthly_rent: number | null;
+  driver_name: string;
+  driver_id_no: string;
+  project_number: string;
+  project_location: string;
+  fuel_card_no: string;
+  fuel_card_limit: number | null;
+  phone_number: string;
+  notes: string;
+  created_at: string;
+  updated_at: string;
+};
+
+const FLEET_PINS: Record<string, FleetRole> = {
+  "090": "admin",
+  "080": "viewer",
+};
+
+export const fleetCookieName = () =>
+  process.env.NODE_ENV === "production"
+    ? "__Host-fleet-session"
+    : "fleet-panel-session";
+
+export async function getFleetDb(): Promise<D1Database> {
+  const env = await getBindings();
+  if (!env.DB) {
+    throw new HttpError(
+      "D1 is not bound. Complete the Cloudflare database setup.",
+      503,
+    );
+  }
+  return env.DB;
+}
+
+const optionalNumber = z.preprocess((v) => {
+  if (v === "" || v === null || v === undefined) return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : v;
+}, z.number().min(0, "Must be 0 or greater.").max(100000000).nullable());
+
+export const vehicleInputSchema = z
+  .object({
+    vehicle_name: z.string().trim().min(1, "Vehicle name is required.").max(120),
+    model: z.string().trim().max(100).default(""),
+    plate_number: z.string().trim().min(1, "Plate number is required.").max(60),
+    fuel_type: z.string().trim().max(60).default(""),
+    owner: z.string().trim().max(120).default(""),
+    monthly_rent_type: z.enum(["N/A", "amount"]).default("N/A"),
+    monthly_rent: optionalNumber.default(null),
+    driver_name: z.string().trim().max(120).default(""),
+    driver_id_no: z.string().trim().max(60).default(""),
+    project_number: z.string().trim().max(60).default(""),
+    project_location: z.string().trim().max(160).default(""),
+    fuel_card_no: z.string().trim().max(60).default(""),
+    fuel_card_limit: optionalNumber.default(null),
+    phone_number: z.string().trim().max(40).default(""),
+    notes: z.string().trim().max(2000).default(""),
+  })
+  .superRefine((data, ctx) => {
+    if (data.monthly_rent_type === "amount" && data.monthly_rent === null) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["monthly_rent"],
+        message: "Enter the monthly rent amount or select N/A.",
+      });
+    }
+  })
+  .transform((data) => ({
+    ...data,
+    monthly_rent: data.monthly_rent_type === "N/A" ? null : data.monthly_rent,
+  }));
+
+export type VehicleInput = z.infer<typeof vehicleInputSchema>;
+
+export async function fleetLogin(db: D1Database, pin: string, now = Date.now()) {
+  pinSchema.parse(pin);
+  const role = FLEET_PINS[pin];
+  if (!role) throw new HttpError("Incorrect PIN. Please try again.", 401);
+  const token = randomBytes(32).toString("hex");
+  await db.batch([
+    db
+      .prepare(
+        "INSERT INTO fleet_sessions(token_hash,role,expires_at) VALUES(?,?,?)",
+      )
+      .bind(tokenHash(token), role, now + 8 * 3600000),
+    db.prepare("DELETE FROM fleet_sessions WHERE expires_at<?").bind(now),
+  ]);
+  return { token, role };
+}
+
+export async function fleetLogout(db: D1Database, token: string) {
+  if (!/^[a-f0-9]{64}$/.test(token)) return;
+  await db
+    .prepare("DELETE FROM fleet_sessions WHERE token_hash=?")
+    .bind(tokenHash(token))
+    .run();
+}
+
+export async function fleetSession(
+  db: D1Database,
+  token: string,
+  now = Date.now(),
+): Promise<FleetProfile> {
+  if (!/^[a-f0-9]{64}$/.test(token)) throw new HttpError("UNAUTHORIZED", 401);
+  const row = await db
+    .prepare(
+      "SELECT role FROM fleet_sessions WHERE token_hash=? AND expires_at>?",
+    )
+    .bind(tokenHash(token), now)
+    .first<{ role: FleetRole }>();
+  if (!row) throw new HttpError("UNAUTHORIZED", 401);
+  return {
+    role: row.role,
+    full_name: row.role === "admin" ? "Fleet Admin" : "Fleet Viewer",
+  };
+}
+
+export async function requireFleet(admin = false) {
+  const db = await getFleetDb();
+  const token = (await cookies()).get(fleetCookieName())?.value || "";
+  const profile = await fleetSession(db, token);
+  if (admin && profile.role !== "admin") throw new HttpError("FORBIDDEN", 403);
+  return { db, profile };
+}
+
+export async function listVehicles(db: D1Database): Promise<FleetVehicle[]> {
+  const res = await db
+    .prepare(
+      `SELECT id,vehicle_name,model,plate_number,fuel_type,owner,monthly_rent_type,monthly_rent,driver_name,driver_id_no,project_number,project_location,fuel_card_no,fuel_card_limit,phone_number,notes,created_at,updated_at
+       FROM fleet_vehicles
+       WHERE deleted_at IS NULL
+       ORDER BY created_at DESC`,
+    )
+    .all<FleetVehicle>();
+  return res.results;
+}
+
+export async function createVehicle(
+  db: D1Database,
+  input: VehicleInput,
+): Promise<FleetVehicle> {
+  const id = crypto.randomUUID();
+  const now = new Date().toISOString();
+  await db
+    .prepare(
+      `INSERT INTO fleet_vehicles(
+        id,vehicle_name,model,plate_number,fuel_type,owner,monthly_rent_type,monthly_rent,
+        driver_name,driver_id_no,project_number,project_location,fuel_card_no,fuel_card_limit,
+        phone_number,notes,created_at,updated_at
+      ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+    )
+    .bind(
+      id,
+      input.vehicle_name,
+      input.model,
+      input.plate_number,
+      input.fuel_type,
+      input.owner,
+      input.monthly_rent_type,
+      input.monthly_rent,
+      input.driver_name,
+      input.driver_id_no,
+      input.project_number,
+      input.project_location,
+      input.fuel_card_no,
+      input.fuel_card_limit,
+      input.phone_number,
+      input.notes,
+      now,
+      now,
+    )
+    .run();
+  return { id, ...input, created_at: now, updated_at: now };
+}
+
+export async function updateVehicle(
+  db: D1Database,
+  id: string,
+  input: VehicleInput,
+): Promise<FleetVehicle> {
+  const now = new Date().toISOString();
+  const res = await db
+    .prepare(
+      `UPDATE fleet_vehicles SET
+        vehicle_name=?,model=?,plate_number=?,fuel_type=?,owner=?,monthly_rent_type=?,monthly_rent=?,
+        driver_name=?,driver_id_no=?,project_number=?,project_location=?,fuel_card_no=?,fuel_card_limit=?,
+        phone_number=?,notes=?,updated_at=?
+       WHERE id=? AND deleted_at IS NULL`,
+    )
+    .bind(
+      input.vehicle_name,
+      input.model,
+      input.plate_number,
+      input.fuel_type,
+      input.owner,
+      input.monthly_rent_type,
+      input.monthly_rent,
+      input.driver_name,
+      input.driver_id_no,
+      input.project_number,
+      input.project_location,
+      input.fuel_card_no,
+      input.fuel_card_limit,
+      input.phone_number,
+      input.notes,
+      now,
+      id,
+    )
+    .run();
+  if (!res.meta.changes) throw new HttpError("Vehicle not found.", 404);
+  const row = await db
+    .prepare(
+      `SELECT id,vehicle_name,model,plate_number,fuel_type,owner,monthly_rent_type,monthly_rent,driver_name,driver_id_no,project_number,project_location,fuel_card_no,fuel_card_limit,phone_number,notes,created_at,updated_at
+       FROM fleet_vehicles WHERE id=?`,
+    )
+    .bind(id)
+    .first<FleetVehicle>();
+  if (!row) throw new HttpError("Vehicle not found.", 404);
+  return row;
+}
+
+export async function deleteVehicle(db: D1Database, id: string) {
+  const now = new Date().toISOString();
+  const res = await db
+    .prepare(
+      "UPDATE fleet_vehicles SET deleted_at=?, updated_at=? WHERE id=? AND deleted_at IS NULL",
+    )
+    .bind(now, now, id)
+    .run();
+  if (!res.meta.changes) throw new HttpError("Vehicle not found.", 404);
+}

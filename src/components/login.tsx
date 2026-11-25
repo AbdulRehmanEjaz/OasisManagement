@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { ArrowRight, LockKeyhole } from "lucide-react";
 import { Button } from "./ui/button";
-export default function Login({destination="/survey",heading="Welcome to Site Survey"}:{destination?:"/survey"|"/kpi";heading?:string}) {
+export default function Login({destination="/survey",heading="Welcome to Site Survey"}:{destination?:"/survey"|"/kpi"|"/fleet";heading?:string}) {
   const [pin, setPin] = useState(""),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false),
@@ -13,10 +13,15 @@ export default function Login({destination="/survey",heading="Welcome to Site Su
     setBusy(true);
     setError("");
     try {
-      const r = await fetch("/api/auth", {
+      const endpoint = destination === "/fleet" ? "/api/fleet/auth" : "/api/auth";
+      const payload =
+        destination === "/fleet"
+          ? { action: "login", pin }
+          : { action: "login", pin, dashboard: destination === "/kpi" ? "kpi" : "survey" };
+      const r = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "login", pin,dashboard:destination==='/kpi'?'kpi':'survey' }),
+        body: JSON.stringify(payload),
       });
       const d = await r.json();
       if (!r.ok) throw new Error(d.error);
