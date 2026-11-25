@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
       return json({ ok: true, vehicle }, 201);
     }
 
-    const id = z.string().uuid("Invalid vehicle ID.").parse(body.id);
+    const id = z.uuid("Invalid vehicle ID.").parse(body.id);
 
     if (action === "update") {
       const data = vehicleInputSchema.parse(body.vehicle);

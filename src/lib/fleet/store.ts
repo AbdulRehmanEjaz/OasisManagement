@@ -121,7 +121,7 @@ export const vehicleInputSchema = z
   .superRefine((data, ctx) => {
     if (data.monthly_rent_type === "amount" && data.monthly_rent === null) {
       ctx.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: "custom",
         path: ["monthly_rent"],
         message: "Enter the monthly rent amount or select N/A.",
       });
