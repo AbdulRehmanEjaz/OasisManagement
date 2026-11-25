@@ -1,7 +1,7 @@
 import HubClock from "@/components/hub-clock";
 import { ArrowUpRight, LockKeyhole, Recycle, Sprout, HardHat, MapPin, Truck } from "lucide-react";
 import { redirect } from "next/navigation";
-export const metadata = { title: "Oasis · Operations Hub", description: "Your connected workspace for field operations, farm performance, and workforce management." };
+export const metadata = { title: "ADVACON Operations Hub", description: "Your connected workspace for field operations, farm performance, and workforce management." };
 function Scene({ kind }: {kind: "field" | "farms" | "people" | "fleet"}) {
  return <svg viewBox="0 0 440 250" fill="none" aria-hidden="true" className="hub-scene">
  <defs><linearGradient id={kind+"sky"} x1="220" y1="0" x2="220" y2="250" gradientUnits="userSpaceOnUse"><stop stopColor={kind==="field"||kind==="fleet"?"#e9d5aa":"#dde4df"}/><stop offset="1" stopColor={kind==="field"||kind==="fleet"?"#f8edcf":"#f2f3ed"}/></linearGradient></defs>
