@@ -47,7 +47,8 @@ type FormState = {
 type CardFormState = {
   card_no: string;
   card_limit: string;
-  assign_mode: "Inventory" | "Driver";
+  assign_mode: "Not Assigned" | "Driver" | "Other";
+  selected_driver: string;
   driver_name: string;
   assigned_id_no: string;
   notes: string;
@@ -90,7 +91,8 @@ const EMPTY_FORM: FormState = {
 const EMPTY_CARD_FORM: CardFormState = {
   card_no: "",
   card_limit: "",
-  assign_mode: "Inventory",
+  assign_mode: "Not Assigned",
+  selected_driver: "",
   driver_name: "",
   assigned_id_no: "",
   notes: "",
@@ -123,18 +125,24 @@ function toFormState(v?: FleetVehicle): FormState {
   };
 }
 
+function isUnassigned(val: string) {
+  const s = (val || "").trim().toLowerCase();
+  return !s || s === "inventory" || s === "not assigned";
+}
+
 function toCardFormState(c?: FleetFuelCard): CardFormState {
   if (!c) return { ...EMPTY_CARD_FORM };
-  const isInventory = c.assigned_to.toLowerCase() === "inventory";
+  const unassigned = isUnassigned(c.assigned_to);
   return {
     card_no: c.card_no || "",
     card_limit:
       c.card_limit !== null && c.card_limit !== undefined
         ? String(c.card_limit)
         : "",
-    assign_mode: isInventory ? "Inventory" : "Driver",
-    driver_name: isInventory ? "" : c.assigned_to,
-    assigned_id_no: isInventory ? "" : c.assigned_id_no || "",
+    assign_mode: unassigned ? "Not Assigned" : "Other",
+    selected_driver: "",
+    driver_name: unassigned ? "" : c.assigned_to,
+    assigned_id_no: unassigned ? "" : c.assigned_id_no || "",
     notes: c.notes || "",
   };
 }
@@ -280,6 +288,18 @@ export default function FleetApp({ profile }: { profile: FleetProfile }) {
     return { total: vehicles.length, rentedCount, totalRent, totalFuelLimit };
   }, [vehicles]);
 
+  const driverDirectory = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const v of vehicles) {
+      const name = (v.driver_name || "").trim();
+      if (!name || name === "-") continue;
+      if (!map.has(name)) map.set(name, (v.driver_id_no || "").trim());
+    }
+    return Array.from(map.entries())
+      .map(([name, idNo]) => ({ name, idNo }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [vehicles]);
+
   // Unified fuel cards list (assigned via vehicles + standalone/inventory cards)
   const allFuelCards = useMemo<UnifiedFuelCard[]>(() => {
     const list: UnifiedFuelCard[] = [];
@@ -302,13 +322,13 @@ export default function FleetApp({ profile }: { profile: FleetProfile }) {
       });
     }
     for (const c of standaloneCards) {
-      const isInv = c.assigned_to.toLowerCase() === "inventory";
+      const isInv = isUnassigned(c.assigned_to);
       list.push({
         key: `c-${c.id}`,
         source: "standalone",
         card_no: c.card_no,
         card_limit: c.card_limit,
-        assigned_to: isInv ? "Inventory" : c.assigned_to,
+        assigned_to: isInv ? "Not Assigned (Inventory)" : c.assigned_to,
         assigned_id_no: isInv ? "" : c.assigned_id_no || "",
         vehicle_name: isInv ? "Inventory" : "Standalone",
         plate_number: "",
@@ -488,10 +508,14 @@ export default function FleetApp({ profile }: { profile: FleetProfile }) {
     setBusy(true);
     setCardFormError("");
     try {
-      const isInv = cardForm.assign_mode === "Inventory";
-      const assigned_to = isInv ? "Inventory" : cardForm.driver_name.trim();
+      const isInv = cardForm.assign_mode === "Not Assigned";
+      const assigned_to = isInv
+        ? "Not Assigned"
+        : cardForm.assign_mode === "Driver"
+          ? cardForm.selected_driver.trim()
+          : cardForm.driver_name.trim();
       if (!assigned_to) {
-        throw new Error("Enter the driver name or select Inventory.");
+        throw new Error("Select a driver, enter a name, or choose Not Assigned.");
       }
       const payload = {
         action: editingCard === "new" ? "create" : "update",
@@ -1354,45 +1378,80 @@ export default function FleetApp({ profile }: { profile: FleetProfile }) {
             <label>
               Assigned To
               <select
-                value={cardForm.assign_mode}
-                onChange={(e) =>
-                  setCardForm({
-                    ...cardForm,
-                    assign_mode: e.target.value as "Inventory" | "Driver",
-                  })
+                value={
+                  cardForm.assign_mode === "Not Assigned"
+                    ? "__not_assigned__"
+                    : cardForm.assign_mode === "Other"
+                      ? "__other__"
+                      : cardForm.selected_driver
                 }
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (val === "__not_assigned__") {
+                    setCardForm({
+                      ...cardForm,
+                      assign_mode: "Not Assigned",
+                      selected_driver: "",
+                      driver_name: "",
+                      assigned_id_no: "",
+                    });
+                  } else if (val === "__other__") {
+                    setCardForm({
+                      ...cardForm,
+                      assign_mode: "Other",
+                      selected_driver: "",
+                    });
+                  } else {
+                    const match = driverDirectory.find((d) => d.name === val);
+                    setCardForm({
+                      ...cardForm,
+                      assign_mode: "Driver",
+                      selected_driver: val,
+                      driver_name: val,
+                      assigned_id_no: match?.idNo || "",
+                    });
+                  }
+                }}
               >
-                <option value="Inventory">Inventory (Unused)</option>
-                <option value="Driver">Assigned to Driver</option>
+                <option value="__not_assigned__">
+                  Not Assigned (Inventory)
+                </option>
+                {driverDirectory.map((d) => (
+                  <option key={d.name} value={d.name}>
+                    {d.name}
+                    {d.idNo ? ` (${d.idNo})` : ""}
+                  </option>
+                ))}
+                <option value="__other__">Other Driver (Enter Name)…</option>
               </select>
             </label>
-            {cardForm.assign_mode === "Driver" && (
-              <>
-                <label>
-                  Driver Name *
-                  <input
-                    required
-                    value={cardForm.driver_name}
-                    onChange={(e) =>
-                      setCardForm({ ...cardForm, driver_name: e.target.value })
-                    }
-                    placeholder="Driver full name"
-                  />
-                </label>
-                <label>
-                  Driver ID Number
-                  <input
-                    value={cardForm.assigned_id_no}
-                    onChange={(e) =>
-                      setCardForm({
-                        ...cardForm,
-                        assigned_id_no: e.target.value,
-                      })
-                    }
-                    placeholder="Iqama / National ID"
-                  />
-                </label>
-              </>
+            {cardForm.assign_mode === "Other" && (
+              <label>
+                Driver Name *
+                <input
+                  required
+                  value={cardForm.driver_name}
+                  onChange={(e) =>
+                    setCardForm({ ...cardForm, driver_name: e.target.value })
+                  }
+                  placeholder="Driver full name"
+                />
+              </label>
+            )}
+            {cardForm.assign_mode !== "Not Assigned" && (
+              <label>
+                Driver ID Number
+                <input
+                  value={cardForm.assigned_id_no}
+                  onChange={(e) =>
+                    setCardForm({
+                      ...cardForm,
+                      assigned_id_no: e.target.value,
+                    })
+                  }
+                  placeholder="Iqama / National ID"
+                />
+              </label>
             )}
             <label>
               Notes
