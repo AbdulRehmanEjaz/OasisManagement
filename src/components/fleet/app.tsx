@@ -11,11 +11,20 @@ import {
   Fuel,
   Wallet,
   CreditCard,
+  Download,
+  Package,
+  UserCheck,
 } from "lucide-react";
-import type { FleetProfile, FleetVehicle } from "@/lib/fleet/store";
+import type {
+  FleetFuelCard,
+  FleetProfile,
+  FleetVehicle,
+} from "@/lib/fleet/store";
 import Modal from "../modal";
 import { Button } from "../ui/button";
 import FleetImport from "./import";
+
+type Tab = "vehicles" | "cards";
 
 type FormState = {
   vehicle_name: string;
@@ -35,11 +44,34 @@ type FormState = {
   notes: string;
 };
 
+type CardFormState = {
+  card_no: string;
+  card_limit: string;
+  assign_mode: "Inventory" | "Driver";
+  driver_name: string;
+  assigned_id_no: string;
+  notes: string;
+};
+
+type UnifiedFuelCard = {
+  key: string;
+  source: "vehicle" | "standalone";
+  card_no: string;
+  card_limit: number | null;
+  assigned_to: string;
+  assigned_id_no: string;
+  vehicle_label: string;
+  project_label: string;
+  status: "Assigned" | "Inventory";
+  notes: string;
+  rawCard?: FleetFuelCard;
+};
+
 const EMPTY_FORM: FormState = {
   vehicle_name: "",
   model: "",
   plate_number: "",
-  fuel_type: "",
+  fuel_type: "N/A",
   owner: "",
   monthly_rent_type: "N/A",
   monthly_rent: "",
@@ -53,13 +85,22 @@ const EMPTY_FORM: FormState = {
   notes: "",
 };
 
+const EMPTY_CARD_FORM: CardFormState = {
+  card_no: "",
+  card_limit: "",
+  assign_mode: "Inventory",
+  driver_name: "",
+  assigned_id_no: "",
+  notes: "",
+};
+
 function toFormState(v?: FleetVehicle): FormState {
   if (!v) return { ...EMPTY_FORM };
   return {
     vehicle_name: v.vehicle_name || "",
     model: v.model || "",
     plate_number: v.plate_number || "",
-    fuel_type: v.fuel_type || "",
+    fuel_type: v.fuel_type || "N/A",
     owner: v.owner || "",
     monthly_rent_type: v.monthly_rent_type === "amount" ? "amount" : "N/A",
     monthly_rent:
@@ -80,6 +121,22 @@ function toFormState(v?: FleetVehicle): FormState {
   };
 }
 
+function toCardFormState(c?: FleetFuelCard): CardFormState {
+  if (!c) return { ...EMPTY_CARD_FORM };
+  const isInventory = c.assigned_to.toLowerCase() === "inventory";
+  return {
+    card_no: c.card_no || "",
+    card_limit:
+      c.card_limit !== null && c.card_limit !== undefined
+        ? String(c.card_limit)
+        : "",
+    assign_mode: isInventory ? "Inventory" : "Driver",
+    driver_name: isInventory ? "" : c.assigned_to,
+    assigned_id_no: isInventory ? "" : c.assigned_id_no || "",
+    notes: c.notes || "",
+  };
+}
+
 function formatNumber(n: number) {
   return new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 }).format(n);
 }
@@ -94,39 +151,64 @@ function formatLimit(limit: number | null) {
   return `${formatNumber(limit)} SAR`;
 }
 
+function fuelBadgeClass(fuel: string) {
+  const f = (fuel || "").toLowerCase();
+  if (f === "diesel") return "fleet-badge fleet-badge-diesel";
+  if (f === "petrol") return "fleet-badge fleet-badge-petrol";
+  return "fleet-badge fleet-badge-na";
+}
+
 export default function FleetApp({ profile }: { profile: FleetProfile }) {
   const admin = profile.role === "admin";
+  const [tab, setTab] = useState<Tab>("vehicles");
   const [vehicles, setVehicles] = useState<FleetVehicle[]>([]);
+  const [standaloneCards, setStandaloneCards] = useState<FleetFuelCard[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [saved, setSaved] = useState("");
+
+  // Vehicle filters & modals
   const [search, setSearch] = useState("");
   const [fuelFilter, setFuelFilter] = useState("");
   const [rentFilter, setRentFilter] = useState("");
   const [page, setPage] = useState(0);
-
   const [editing, setEditing] = useState<FleetVehicle | "new" | null>(null);
   const [form, setForm] = useState<FormState>({ ...EMPTY_FORM });
   const [formError, setFormError] = useState("");
-  const [busy, setBusy] = useState(false);
-
   const [detail, setDetail] = useState<FleetVehicle | null>(null);
   const [deleting, setDeleting] = useState<FleetVehicle | null>(null);
 
+  // Fuel Card filters & modals
+  const [cardSearch, setCardSearch] = useState("");
+  const [cardStatusFilter, setCardStatusFilter] = useState("");
+  const [cardPage, setCardPage] = useState(0);
+  const [editingCard, setEditingCard] = useState<FleetFuelCard | "new" | null>(
+    null,
+  );
+  const [cardForm, setCardForm] = useState<CardFormState>({
+    ...EMPTY_CARD_FORM,
+  });
+  const [cardFormError, setCardFormError] = useState("");
+  const [deletingCard, setDeletingCard] = useState<FleetFuelCard | null>(null);
+
+  const [busy, setBusy] = useState(false);
+
   const load = useCallback(async (signal?: AbortSignal) => {
     try {
-      const response = await fetch("/api/fleet", {
-        cache: "no-store",
-        signal,
-      });
-      if (response.status === 401) {
+      const [vRes, cRes] = await Promise.all([
+        fetch("/api/fleet", { cache: "no-store", signal }),
+        fetch("/api/fleet/cards", { cache: "no-store", signal }),
+      ]);
+      if (vRes.status === 401 || cRes.status === 401) {
         location.href = "/fleet/login";
         return;
       }
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Failed to load vehicles.");
+      const [vData, cData] = await Promise.all([vRes.json(), cRes.json()]);
+      if (!vRes.ok) throw new Error(vData.error || "Failed to load vehicles.");
+      if (!cRes.ok) throw new Error(cData.error || "Failed to load fuel cards.");
       if (!signal?.aborted) {
-        setVehicles(data.vehicles || []);
+        setVehicles(vData.vehicles || []);
+        setStandaloneCards(cData.cards || []);
         setError("");
       }
     } catch (e) {
@@ -154,7 +236,8 @@ export default function FleetApp({ profile }: { profile: FleetProfile }) {
     const q = search.trim().toLowerCase();
     return vehicles.filter((v) => {
       if (fuelFilter && v.fuel_type !== fuelFilter) return false;
-      if (rentFilter === "rented" && v.monthly_rent_type !== "amount") return false;
+      if (rentFilter === "rented" && v.monthly_rent_type !== "amount")
+        return false;
       if (rentFilter === "na" && v.monthly_rent_type !== "N/A") return false;
       if (!q) return true;
       const hay = [
@@ -193,12 +276,94 @@ export default function FleetApp({ profile }: { profile: FleetProfile }) {
     return { total: vehicles.length, rentedCount, totalRent, totalFuelLimit };
   }, [vehicles]);
 
-  const pageSize = 12;
+  // Unified fuel cards list (assigned via vehicles + standalone/inventory cards)
+  const allFuelCards = useMemo<UnifiedFuelCard[]>(() => {
+    const list: UnifiedFuelCard[] = [];
+    for (const v of vehicles) {
+      const cardNo = (v.fuel_card_no || "").trim();
+      if (!cardNo || /^(-|—|n\/?a)$/i.test(cardNo)) continue;
+      list.push({
+        key: `v-${v.id}`,
+        source: "vehicle",
+        card_no: cardNo,
+        card_limit: v.fuel_card_limit,
+        assigned_to: v.driver_name || v.vehicle_name,
+        assigned_id_no: v.driver_id_no || "",
+        vehicle_label: [v.vehicle_name, v.plate_number]
+          .filter((x) => x && x !== "-")
+          .join(" · "),
+        project_label: [v.project_number, v.project_location]
+          .filter(Boolean)
+          .join(" · "),
+        status: "Assigned",
+        notes: v.notes || "",
+      });
+    }
+    for (const c of standaloneCards) {
+      const isInv = c.assigned_to.toLowerCase() === "inventory";
+      list.push({
+        key: `c-${c.id}`,
+        source: "standalone",
+        card_no: c.card_no,
+        card_limit: c.card_limit,
+        assigned_to: isInv ? "Inventory" : c.assigned_to,
+        assigned_id_no: isInv ? "" : c.assigned_id_no || "",
+        vehicle_label: isInv ? "Unused · In Inventory" : "Standalone Card",
+        project_label: "",
+        status: isInv ? "Inventory" : "Assigned",
+        notes: c.notes || "",
+        rawCard: c,
+      });
+    }
+    return list;
+  }, [vehicles, standaloneCards]);
+
+  const cardStats = useMemo(() => {
+    let assigned = 0;
+    let inventory = 0;
+    let totalLimit = 0;
+    for (const c of allFuelCards) {
+      if (c.status === "Inventory") inventory += 1;
+      else assigned += 1;
+      if (c.card_limit !== null && c.card_limit !== undefined) {
+        totalLimit += Number(c.card_limit) || 0;
+      }
+    }
+    return { total: allFuelCards.length, assigned, inventory, totalLimit };
+  }, [allFuelCards]);
+
+  const filteredCards = useMemo(() => {
+    const q = cardSearch.trim().toLowerCase();
+    return allFuelCards.filter((c) => {
+      if (cardStatusFilter && c.status !== cardStatusFilter) return false;
+      if (!q) return true;
+      return [
+        c.card_no,
+        c.assigned_to,
+        c.assigned_id_no,
+        c.vehicle_label,
+        c.project_label,
+        c.notes,
+      ]
+        .join(" ")
+        .toLowerCase()
+        .includes(q);
+    });
+  }, [allFuelCards, cardSearch, cardStatusFilter]);
+
+  const pageSize = 15;
   const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
   const currentPage = Math.min(page, pageCount - 1);
   const display = filtered.slice(
     currentPage * pageSize,
     currentPage * pageSize + pageSize,
+  );
+
+  const cardPageCount = Math.max(1, Math.ceil(filteredCards.length / pageSize));
+  const currentCardPage = Math.min(cardPage, cardPageCount - 1);
+  const displayCards = filteredCards.slice(
+    currentCardPage * pageSize,
+    currentCardPage * pageSize + pageSize,
   );
 
   function openNew() {
@@ -213,6 +378,18 @@ export default function FleetApp({ profile }: { profile: FleetProfile }) {
     setEditing(v);
   }
 
+  function openNewCard() {
+    setCardForm({ ...EMPTY_CARD_FORM });
+    setCardFormError("");
+    setEditingCard("new");
+  }
+
+  function openEditCard(c: FleetFuelCard) {
+    setCardForm(toCardFormState(c));
+    setCardFormError("");
+    setEditingCard(c);
+  }
+
   async function saveVehicle(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
@@ -225,7 +402,7 @@ export default function FleetApp({ profile }: { profile: FleetProfile }) {
           vehicle_name: form.vehicle_name,
           model: form.model,
           plate_number: form.plate_number,
-          fuel_type: form.fuel_type,
+          fuel_type: form.fuel_type || "N/A",
           owner: form.owner,
           monthly_rent_type: form.monthly_rent_type,
           monthly_rent:
@@ -277,9 +454,75 @@ export default function FleetApp({ profile }: { profile: FleetProfile }) {
         body: JSON.stringify({ action: "delete", id: deleting.id }),
       });
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Failed to delete vehicle.");
+      if (!response.ok)
+        throw new Error(data.error || "Failed to delete vehicle.");
       setDeleting(null);
       setSaved("Vehicle record removed.");
+      await load();
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function saveCard(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setCardFormError("");
+    try {
+      const isInv = cardForm.assign_mode === "Inventory";
+      const assigned_to = isInv ? "Inventory" : cardForm.driver_name.trim();
+      if (!assigned_to) {
+        throw new Error("Enter the driver name or select Inventory.");
+      }
+      const payload = {
+        action: editingCard === "new" ? "create" : "update",
+        id: editingCard && editingCard !== "new" ? editingCard.id : undefined,
+        card: {
+          card_no: cardForm.card_no,
+          card_limit:
+            cardForm.card_limit === "" ? null : Number(cardForm.card_limit),
+          assigned_to,
+          assigned_id_no: isInv ? "" : cardForm.assigned_id_no,
+          notes: cardForm.notes,
+        },
+      };
+      const response = await fetch("/api/fleet/cards", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await response.json();
+      if (!response.ok)
+        throw new Error(data.error || "Failed to save fuel card.");
+      setEditingCard(null);
+      setSaved(
+        editingCard === "new" ? "Fuel card added." : "Fuel card updated.",
+      );
+      await load();
+    } catch (err) {
+      setCardFormError((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function confirmDeleteCard() {
+    if (!deletingCard) return;
+    setBusy(true);
+    setError("");
+    try {
+      const response = await fetch("/api/fleet/cards", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "delete", id: deletingCard.id }),
+      });
+      const data = await response.json();
+      if (!response.ok)
+        throw new Error(data.error || "Failed to delete fuel card.");
+      setDeletingCard(null);
+      setSaved("Fuel card removed.");
       await load();
     } catch (err) {
       setError((err as Error).message);
@@ -296,15 +539,15 @@ export default function FleetApp({ profile }: { profile: FleetProfile }) {
             src="/branding/advacon-alula-oasis-transparent.png"
             width="300"
             height="100"
-            alt="ADVACON and AlUla Oasis Management"
+            alt="ADVACON Operations Management"
           />
         </a>
         <div className="kpi-app-title">
-          <span>OASIS FLEET OPERATIONS</span>
+          <span>ADVACON FLEET OPERATIONS</span>
           <h1>Vehicles Management</h1>
           <p>
-            Vehicle registry, driver assignments, monthly rent &amp; fuel card
-            limits
+            Fleet registry, driver assignments, monthly rent &amp; fuel card
+            inventory
           </p>
         </div>
         <div className="kpi-account">
@@ -331,21 +574,35 @@ export default function FleetApp({ profile }: { profile: FleetProfile }) {
         </div>
       </header>
 
-      <nav className="kpi-app-nav" aria-label="Vehicles panel actions">
-        <button aria-current="page" type="button">
+      <nav className="kpi-app-nav" aria-label="Vehicles panel navigation">
+        <button
+          aria-current={tab === "vehicles" ? "page" : undefined}
+          type="button"
+          onClick={() => setTab("vehicles")}
+        >
           <Car size={18} />
           Fleet Registry
         </button>
+        <button
+          aria-current={tab === "cards" ? "page" : undefined}
+          type="button"
+          onClick={() => setTab("cards")}
+        >
+          <CreditCard size={18} />
+          Fuel Cards
+        </button>
+
         <div className="kpi-nav-actions">
           <button
             type="button"
             onClick={() => void load()}
-            aria-label="Refresh vehicles"
+            aria-label="Refresh fleet data"
           >
             <RefreshCw size={17} />
+            Refresh
           </button>
-          {admin && <FleetImport onImported={load} />}
-          {admin && (
+          {admin && tab === "vehicles" && <FleetImport onImported={load} />}
+          {admin && tab === "vehicles" && (
             <button
               type="button"
               className="kpi-new-report"
@@ -353,6 +610,16 @@ export default function FleetApp({ profile }: { profile: FleetProfile }) {
             >
               <Plus size={18} />
               Add Vehicle
+            </button>
+          )}
+          {admin && tab === "cards" && (
+            <button
+              type="button"
+              className="kpi-new-report"
+              onClick={openNewCard}
+            >
+              <Plus size={18} />
+              Add Fuel Card
             </button>
           )}
         </div>
@@ -378,56 +645,48 @@ export default function FleetApp({ profile }: { profile: FleetProfile }) {
 
       {loading ? (
         <div className="kpi-loading" role="status">
-          Loading vehicles…
+          Loading fleet data…
         </div>
-      ) : (
+      ) : tab === "vehicles" ? (
         <>
-          <section
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))",
-              gap: "14px",
-              marginBottom: "18px",
-            }}
-            aria-label="Fleet summary"
-          >
-            <article className="kpi-report-list" style={{ margin: 0, padding: "18px" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "8px", color: "var(--muted)", fontSize: "13px", fontWeight: 600 }}>
-                <Car size={16} /> Total Vehicles
+          <section className="fleet-kpi-grid" aria-label="Fleet summary">
+            <article className="fleet-kpi-card">
+              <div className="fleet-kpi-label">
+                <Car size={15} /> Total Vehicles
               </div>
-              <div style={{ fontSize: "28px", fontWeight: 700, marginTop: "6px" }}>
-                {formatNumber(stats.total)}
-              </div>
+              <div className="fleet-kpi-value">{formatNumber(stats.total)}</div>
             </article>
-            <article className="kpi-report-list" style={{ margin: 0, padding: "18px" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "8px", color: "var(--muted)", fontSize: "13px", fontWeight: 600 }}>
-                <Wallet size={16} /> Rented Vehicles
+            <article className="fleet-kpi-card">
+              <div className="fleet-kpi-label">
+                <Wallet size={15} /> Rented Vehicles
               </div>
-              <div style={{ fontSize: "28px", fontWeight: 700, marginTop: "6px" }}>
+              <div className="fleet-kpi-value">
                 {formatNumber(stats.rentedCount)}
               </div>
             </article>
-            <article className="kpi-report-list" style={{ margin: 0, padding: "18px" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "8px", color: "var(--muted)", fontSize: "13px", fontWeight: 600 }}>
-                <Fuel size={16} /> Total Monthly Rent
+            <article className="fleet-kpi-card">
+              <div className="fleet-kpi-label">
+                <Fuel size={15} /> Total Monthly Rent
               </div>
-              <div style={{ fontSize: "28px", fontWeight: 700, marginTop: "6px" }}>
-                {formatNumber(stats.totalRent)} <span style={{ fontSize: "14px", fontWeight: 500 }}>SAR</span>
+              <div className="fleet-kpi-value">
+                {formatNumber(stats.totalRent)}
+                <span className="fleet-kpi-unit">SAR</span>
               </div>
             </article>
-            <article className="kpi-report-list" style={{ margin: 0, padding: "18px" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "8px", color: "var(--muted)", fontSize: "13px", fontWeight: 600 }}>
-                <CreditCard size={16} /> Total Fuel Card Limit
+            <article className="fleet-kpi-card">
+              <div className="fleet-kpi-label">
+                <CreditCard size={15} /> Total Fuel Card Limit
               </div>
-              <div style={{ fontSize: "28px", fontWeight: 700, marginTop: "6px" }}>
-                {formatNumber(stats.totalFuelLimit)} <span style={{ fontSize: "14px", fontWeight: 500 }}>SAR</span>
+              <div className="fleet-kpi-value">
+                {formatNumber(stats.totalFuelLimit)}
+                <span className="fleet-kpi-unit">SAR</span>
               </div>
             </article>
           </section>
 
-          <section className="kpi-report-list">
-            <div className="kpi-list-heading">
-              <div>
+          <section className="fleet-panel">
+            <div className="fleet-toolbar">
+              <div className="fleet-toolbar-title">
                 <h2>Vehicle Records</h2>
                 <p>
                   {filtered.length} vehicle{filtered.length === 1 ? "" : "s"}
@@ -436,24 +695,19 @@ export default function FleetApp({ profile }: { profile: FleetProfile }) {
                     : ""}
                 </p>
               </div>
-              <label>
-                Search vehicles
+              <div className="fleet-toolbar-controls">
                 <input
                   type="search"
+                  aria-label="Search vehicles"
                   value={search}
                   onChange={(e) => {
                     setSearch(e.target.value);
                     setPage(0);
                   }}
-                  placeholder="Plate, name, driver, project, fuel card…"
+                  placeholder="Search plate, name, driver, card…"
                 />
-              </label>
-            </div>
-
-            <div className="kpi-report-filters">
-              <label>
-                Fuel Type
                 <select
+                  aria-label="Filter by fuel type"
                   value={fuelFilter}
                   onChange={(e) => {
                     setFuelFilter(e.target.value);
@@ -467,68 +721,87 @@ export default function FleetApp({ profile }: { profile: FleetProfile }) {
                     </option>
                   ))}
                 </select>
-              </label>
-              <label>
-                Monthly Rent
                 <select
+                  aria-label="Filter by monthly rent"
                   value={rentFilter}
                   onChange={(e) => {
                     setRentFilter(e.target.value);
                     setPage(0);
                   }}
                 >
-                  <option value="">All</option>
-                  <option value="rented">Rented (Amount)</option>
+                  <option value="">All rent</option>
+                  <option value="rented">Rented</option>
                   <option value="na">N/A</option>
                 </select>
-              </label>
-              <button
-                type="button"
-                onClick={() => {
-                  setSearch("");
-                  setFuelFilter("");
-                  setRentFilter("");
-                  setPage(0);
-                }}
-              >
-                Clear filters
-              </button>
+                {(search || fuelFilter || rentFilter) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSearch("");
+                      setFuelFilter("");
+                      setRentFilter("");
+                      setPage(0);
+                    }}
+                  >
+                    Clear
+                  </button>
+                )}
+                <a
+                  className="fleet-export-btn"
+                  href="/api/fleet/export"
+                  download
+                >
+                  <Download size={15} />
+                  Export Excel (.xlsx)
+                </a>
+              </div>
             </div>
 
             <div className="kpi-table-scroll">
               <table>
                 <thead>
                   <tr>
+                    <th>#</th>
                     <th>Vehicle &amp; Model</th>
-                    <th>Plate Number</th>
+                    <th>Plate No. (AR)</th>
                     <th>Fuel Type</th>
                     <th>Owner</th>
-                    <th>Monthly Rent</th>
-                    <th>Driver</th>
+                    <th>Driver &amp; Phone</th>
                     <th>Project</th>
                     <th>Fuel Card &amp; Limit</th>
+                    <th>Rent</th>
                     <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {display.map((v) => (
+                  {display.map((v, idx) => (
                     <tr key={v.id}>
+                      <td style={{ color: "var(--muted)", fontWeight: 600 }}>
+                        {currentPage * pageSize + idx + 1}
+                      </td>
                       <td>
                         <strong>{v.vehicle_name}</strong>
-                        {v.model && (
-                          <small style={{ display: "block", color: "var(--muted)" }}>
+                        {v.model && v.model !== "-" && (
+                          <small
+                            style={{ display: "block", color: "var(--muted)" }}
+                          >
                             {v.model}
                           </small>
                         )}
                       </td>
-                      <td>{v.plate_number}</td>
-                      <td>{v.fuel_type || "—"}</td>
+                      <td dir="auto">{v.plate_number}</td>
+                      <td>
+                        <span className={fuelBadgeClass(v.fuel_type)}>
+                          {v.fuel_type || "N/A"}
+                        </span>
+                      </td>
                       <td>{v.owner || "—"}</td>
-                      <td>{formatRent(v)}</td>
                       <td>
                         {v.driver_name || "—"}
                         {v.phone_number && (
-                          <small style={{ display: "block", color: "var(--muted)" }}>
+                          <small
+                            style={{ display: "block", color: "var(--muted)" }}
+                          >
                             {v.phone_number}
                           </small>
                         )}
@@ -536,24 +809,29 @@ export default function FleetApp({ profile }: { profile: FleetProfile }) {
                       <td>
                         {v.project_number || "—"}
                         {v.project_location && (
-                          <small style={{ display: "block", color: "var(--muted)" }}>
+                          <small
+                            style={{ display: "block", color: "var(--muted)" }}
+                          >
                             {v.project_location}
                           </small>
                         )}
                       </td>
                       <td>
                         {v.fuel_card_no || "—"}
-                        <small style={{ display: "block", color: "var(--muted)" }}>
+                        <small
+                          style={{ display: "block", color: "var(--muted)" }}
+                        >
                           Limit: {formatLimit(v.fuel_card_limit)}
                         </small>
                       </td>
+                      <td>{formatRent(v)}</td>
                       <td>
                         <div className="kpi-row-actions">
                           <button
                             aria-label={`View ${v.vehicle_name}`}
                             onClick={() => setDetail(v)}
                           >
-                            <Eye size={17} />
+                            <Eye size={16} />
                           </button>
                           {admin && (
                             <>
@@ -561,13 +839,13 @@ export default function FleetApp({ profile }: { profile: FleetProfile }) {
                                 aria-label={`Edit ${v.vehicle_name}`}
                                 onClick={() => openEdit(v)}
                               >
-                                <Pencil size={17} />
+                                <Pencil size={16} />
                               </button>
                               <button
                                 aria-label={`Delete ${v.vehicle_name}`}
                                 onClick={() => setDeleting(v)}
                               >
-                                <Trash2 size={17} />
+                                <Trash2 size={16} />
                               </button>
                             </>
                           )}
@@ -589,7 +867,7 @@ export default function FleetApp({ profile }: { profile: FleetProfile }) {
                 </h3>
                 <p>
                   {admin
-                    ? "Click Add Vehicle to register your first vehicle."
+                    ? "Click Add Vehicle or Import Excel to register vehicles."
                     : "Vehicle records added by Admin will appear here."}
                 </p>
               </div>
@@ -608,6 +886,202 @@ export default function FleetApp({ profile }: { profile: FleetProfile }) {
               <button
                 disabled={currentPage + 1 >= pageCount}
                 onClick={() => setPage((p) => p + 1)}
+              >
+                Next
+              </button>
+            </footer>
+          </section>
+        </>
+      ) : (
+        <>
+          <section className="fleet-kpi-grid" aria-label="Fuel cards summary">
+            <article className="fleet-kpi-card">
+              <div className="fleet-kpi-label">
+                <CreditCard size={15} /> Total Fuel Cards
+              </div>
+              <div className="fleet-kpi-value">
+                {formatNumber(cardStats.total)}
+              </div>
+            </article>
+            <article className="fleet-kpi-card">
+              <div className="fleet-kpi-label">
+                <UserCheck size={15} /> Assigned Cards
+              </div>
+              <div className="fleet-kpi-value">
+                {formatNumber(cardStats.assigned)}
+              </div>
+            </article>
+            <article className="fleet-kpi-card">
+              <div className="fleet-kpi-label">
+                <Package size={15} /> In Inventory (Unused)
+              </div>
+              <div className="fleet-kpi-value">
+                {formatNumber(cardStats.inventory)}
+              </div>
+            </article>
+            <article className="fleet-kpi-card">
+              <div className="fleet-kpi-label">
+                <Fuel size={15} /> Total Cards Limit
+              </div>
+              <div className="fleet-kpi-value">
+                {formatNumber(cardStats.totalLimit)}
+                <span className="fleet-kpi-unit">SAR</span>
+              </div>
+            </article>
+          </section>
+
+          <section className="fleet-panel">
+            <div className="fleet-toolbar">
+              <div className="fleet-toolbar-title">
+                <h2>Fuel Cards Directory</h2>
+                <p>
+                  {filteredCards.length} card
+                  {filteredCards.length === 1 ? "" : "s"} (vehicle-assigned
+                  &amp; inventory)
+                </p>
+              </div>
+              <div className="fleet-toolbar-controls">
+                <input
+                  type="search"
+                  aria-label="Search fuel cards"
+                  value={cardSearch}
+                  onChange={(e) => {
+                    setCardSearch(e.target.value);
+                    setCardPage(0);
+                  }}
+                  placeholder="Search card no, driver, ID, vehicle…"
+                />
+                <select
+                  aria-label="Filter by status"
+                  value={cardStatusFilter}
+                  onChange={(e) => {
+                    setCardStatusFilter(e.target.value);
+                    setCardPage(0);
+                  }}
+                >
+                  <option value="">All cards</option>
+                  <option value="Assigned">Assigned</option>
+                  <option value="Inventory">Inventory (Unused)</option>
+                </select>
+                {(cardSearch || cardStatusFilter) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCardSearch("");
+                      setCardStatusFilter("");
+                      setCardPage(0);
+                    }}
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div className="kpi-table-scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Fuel Card No.</th>
+                    <th>Card Limit</th>
+                    <th>Assigned To</th>
+                    <th>ID Number</th>
+                    <th>Vehicle / Source</th>
+                    <th>Status</th>
+                    <th>Notes</th>
+                    {admin && <th>Actions</th>}
+                  </tr>
+                </thead>
+                <tbody>
+                  {displayCards.map((c, idx) => (
+                    <tr key={c.key}>
+                      <td style={{ color: "var(--muted)", fontWeight: 600 }}>
+                        {currentCardPage * pageSize + idx + 1}
+                      </td>
+                      <td>
+                        <strong>{c.card_no}</strong>
+                      </td>
+                      <td>{formatLimit(c.card_limit)}</td>
+                      <td>{c.assigned_to}</td>
+                      <td>{c.assigned_id_no || "—"}</td>
+                      <td>
+                        {c.vehicle_label}
+                        {c.project_label && (
+                          <small
+                            style={{ display: "block", color: "var(--muted)" }}
+                          >
+                            {c.project_label}
+                          </small>
+                        )}
+                      </td>
+                      <td>
+                        <span
+                          className={
+                            c.status === "Inventory"
+                              ? "fleet-badge fleet-badge-inventory"
+                              : "fleet-badge fleet-badge-assigned"
+                          }
+                        >
+                          {c.status}
+                        </span>
+                      </td>
+                      <td>{c.notes || "—"}</td>
+                      {admin && (
+                        <td>
+                          {c.source === "standalone" && c.rawCard ? (
+                            <div className="kpi-row-actions">
+                              <button
+                                aria-label={`Edit card ${c.card_no}`}
+                                onClick={() => openEditCard(c.rawCard!)}
+                              >
+                                <Pencil size={16} />
+                              </button>
+                              <button
+                                aria-label={`Delete card ${c.card_no}`}
+                                onClick={() => setDeletingCard(c.rawCard!)}
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            </div>
+                          ) : (
+                            <small style={{ color: "var(--muted)" }}>
+                              Via vehicle
+                            </small>
+                          )}
+                        </td>
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {!filteredCards.length && (
+              <div className="kpi-empty">
+                <CreditCard size={32} />
+                <h3>No fuel cards found</h3>
+                <p>
+                  {admin
+                    ? "Click Add Fuel Card to add unused cards in Inventory."
+                    : "Fuel cards assigned to vehicles or in inventory will appear here."}
+                </p>
+              </div>
+            )}
+
+            <footer className="kpi-list-footer">
+              <button
+                disabled={currentCardPage === 0}
+                onClick={() => setCardPage((p) => Math.max(0, p - 1))}
+              >
+                Previous
+              </button>
+              <span>
+                Page {currentCardPage + 1} of {cardPageCount}
+              </span>
+              <button
+                disabled={currentCardPage + 1 >= cardPageCount}
+                onClick={() => setCardPage((p) => p + 1)}
               >
                 Next
               </button>
@@ -642,22 +1116,23 @@ export default function FleetApp({ profile }: { profile: FleetProfile }) {
                 />
               </label>
               <label>
-                Model
+                Model Year
                 <input
                   value={form.model}
                   onChange={(e) => setForm({ ...form, model: e.target.value })}
-                  placeholder="e.g. 2024 Double Cabin"
+                  placeholder="e.g. 2024"
                 />
               </label>
               <label>
-                Plate Number *
+                Plate No. (AR) *
                 <input
                   required
+                  dir="auto"
                   value={form.plate_number}
                   onChange={(e) =>
                     setForm({ ...form, plate_number: e.target.value })
                   }
-                  placeholder="e.g. ABC 1234"
+                  placeholder="e.g. أ ب ج 1234"
                 />
               </label>
               <label>
@@ -741,7 +1216,7 @@ export default function FleetApp({ profile }: { profile: FleetProfile }) {
                   onChange={(e) =>
                     setForm({ ...form, project_number: e.target.value })
                   }
-                  placeholder="e.g. PRJ-2026-01"
+                  placeholder="e.g. S74"
                 />
               </label>
               <label>
@@ -751,7 +1226,7 @@ export default function FleetApp({ profile }: { profile: FleetProfile }) {
                   onChange={(e) =>
                     setForm({ ...form, project_location: e.target.value })
                   }
-                  placeholder="e.g. AlUla Oasis North"
+                  placeholder="e.g. AlUla Oasis"
                 />
               </label>
               <label>
@@ -765,7 +1240,7 @@ export default function FleetApp({ profile }: { profile: FleetProfile }) {
                 />
               </label>
               <label>
-                Fuel Card Current Limit (SAR)
+                Card Limit (SAR)
                 <input
                   type="number"
                   min="0"
@@ -823,6 +1298,115 @@ export default function FleetApp({ profile }: { profile: FleetProfile }) {
         </Modal>
       )}
 
+      {editingCard && (
+        <Modal
+          title={editingCard === "new" ? "Add Fuel Card" : "Edit Fuel Card"}
+          onClose={() => !busy && setEditingCard(null)}
+        >
+          <form onSubmit={saveCard}>
+            <label>
+              Fuel Card No. *
+              <input
+                required
+                value={cardForm.card_no}
+                onChange={(e) =>
+                  setCardForm({ ...cardForm, card_no: e.target.value })
+                }
+                placeholder="Enter fuel card number"
+              />
+            </label>
+            <label>
+              Card Limit (SAR)
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={cardForm.card_limit}
+                onChange={(e) =>
+                  setCardForm({ ...cardForm, card_limit: e.target.value })
+                }
+                placeholder="e.g. 1500"
+              />
+            </label>
+            <label>
+              Assigned To
+              <select
+                value={cardForm.assign_mode}
+                onChange={(e) =>
+                  setCardForm({
+                    ...cardForm,
+                    assign_mode: e.target.value as "Inventory" | "Driver",
+                  })
+                }
+              >
+                <option value="Inventory">Inventory (Unused)</option>
+                <option value="Driver">Assigned to Driver</option>
+              </select>
+            </label>
+            {cardForm.assign_mode === "Driver" && (
+              <>
+                <label>
+                  Driver Name *
+                  <input
+                    required
+                    value={cardForm.driver_name}
+                    onChange={(e) =>
+                      setCardForm({ ...cardForm, driver_name: e.target.value })
+                    }
+                    placeholder="Driver full name"
+                  />
+                </label>
+                <label>
+                  Driver ID Number
+                  <input
+                    value={cardForm.assigned_id_no}
+                    onChange={(e) =>
+                      setCardForm({
+                        ...cardForm,
+                        assigned_id_no: e.target.value,
+                      })
+                    }
+                    placeholder="Iqama / National ID"
+                  />
+                </label>
+              </>
+            )}
+            <label>
+              Notes
+              <textarea
+                value={cardForm.notes}
+                onChange={(e) =>
+                  setCardForm({ ...cardForm, notes: e.target.value })
+                }
+                placeholder="Optional notes"
+              />
+            </label>
+            {cardFormError && (
+              <p className="notice error" role="alert">
+                {cardFormError}
+              </p>
+            )}
+            <div className="form-footer">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={busy}
+                onClick={() => setEditingCard(null)}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={busy}>
+                {busy
+                  ? "Saving…"
+                  : editingCard === "new"
+                    ? "Add Fuel Card"
+                    : "Save Changes"}
+              </Button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
       {detail && (
         <Modal
           title={detail.vehicle_name}
@@ -830,9 +1414,9 @@ export default function FleetApp({ profile }: { profile: FleetProfile }) {
           onClose={() => setDetail(null)}
         >
           <div className="kpi-detail-meta">
-            <strong>{detail.plate_number}</strong>
+            <strong dir="auto">{detail.plate_number}</strong>
             {detail.model && <span>{detail.model}</span>}
-            {detail.fuel_type && <span>{detail.fuel_type}</span>}
+            <span>{detail.fuel_type || "N/A"}</span>
           </div>
           <dl className="kpi-detail-grid">
             <div>
@@ -840,16 +1424,16 @@ export default function FleetApp({ profile }: { profile: FleetProfile }) {
               <dd>{detail.vehicle_name}</dd>
             </div>
             <div>
-              <dt>Model</dt>
+              <dt>Model Year</dt>
               <dd>{detail.model || "—"}</dd>
             </div>
             <div>
-              <dt>Plate Number</dt>
-              <dd>{detail.plate_number}</dd>
+              <dt>Plate No. (AR)</dt>
+              <dd dir="auto">{detail.plate_number}</dd>
             </div>
             <div>
               <dt>Fuel Type</dt>
-              <dd>{detail.fuel_type || "—"}</dd>
+              <dd>{detail.fuel_type || "N/A"}</dd>
             </div>
             <div>
               <dt>Owner</dt>
@@ -880,7 +1464,7 @@ export default function FleetApp({ profile }: { profile: FleetProfile }) {
               <dd>{detail.fuel_card_no || "—"}</dd>
             </div>
             <div>
-              <dt>Fuel Card Current Limit</dt>
+              <dt>Card Limit (SAR)</dt>
               <dd>{formatLimit(detail.fuel_card_limit)}</dd>
             </div>
             <div>
@@ -930,6 +1514,34 @@ export default function FleetApp({ profile }: { profile: FleetProfile }) {
               onClick={() => void confirmDelete()}
             >
               {busy ? "Deleting…" : "Delete vehicle"}
+            </Button>
+          </div>
+        </Modal>
+      )}
+
+      {deletingCard && (
+        <Modal
+          title="Delete fuel card?"
+          onClose={() => !busy && setDeletingCard(null)}
+        >
+          <p>
+            Remove fuel card <strong>{deletingCard.card_no}</strong> (
+            {deletingCard.assigned_to})?
+          </p>
+          <div className="form-footer">
+            <Button
+              variant="outline"
+              disabled={busy}
+              onClick={() => setDeletingCard(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={busy}
+              onClick={() => void confirmDeleteCard()}
+            >
+              {busy ? "Deleting…" : "Delete card"}
             </Button>
           </div>
         </Modal>

@@ -30,6 +30,17 @@ export type FleetVehicle = {
   updated_at: string;
 };
 
+export type FleetFuelCard = {
+  id: string;
+  card_no: string;
+  card_limit: number | null;
+  assigned_to: string;
+  assigned_id_no: string;
+  notes: string;
+  created_at: string;
+  updated_at: string;
+};
+
 const FLEET_PINS: Record<string, FleetRole> = {
   "090": "admin",
   "080": "viewer",
@@ -77,6 +88,20 @@ async function ensureFleetSchema(db: D1Database) {
     )`),
     db.prepare(
       `CREATE INDEX IF NOT EXISTS fleet_vehicles_active ON fleet_vehicles(deleted_at, created_at DESC)`,
+    ),
+    db.prepare(`CREATE TABLE IF NOT EXISTS fleet_fuel_cards (
+      id TEXT PRIMARY KEY,
+      card_no TEXT NOT NULL,
+      card_limit REAL,
+      assigned_to TEXT NOT NULL DEFAULT 'Inventory',
+      assigned_id_no TEXT NOT NULL DEFAULT '',
+      notes TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+      updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+      deleted_at TEXT
+    )`),
+    db.prepare(
+      `CREATE INDEX IF NOT EXISTS fleet_fuel_cards_active ON fleet_fuel_cards(deleted_at, created_at ASC)`,
     ),
   ]);
   fleetSchemaReady = true;
@@ -191,10 +216,101 @@ export async function listVehicles(db: D1Database): Promise<FleetVehicle[]> {
       `SELECT id,vehicle_name,model,plate_number,fuel_type,owner,monthly_rent_type,monthly_rent,driver_name,driver_id_no,project_number,project_location,fuel_card_no,fuel_card_limit,phone_number,notes,created_at,updated_at
        FROM fleet_vehicles
        WHERE deleted_at IS NULL
-       ORDER BY created_at DESC`,
+       ORDER BY created_at ASC, rowid ASC`,
     )
     .all<FleetVehicle>();
   return res.results;
+}
+
+export const fuelCardInputSchema = z.object({
+  card_no: z.string().trim().min(1, "Fuel card number is required.").max(80),
+  card_limit: optionalNumber.default(null),
+  assigned_to: z.string().trim().min(1, "Assigned to is required.").max(120).default("Inventory"),
+  assigned_id_no: z.string().trim().max(60).default(""),
+  notes: z.string().trim().max(1000).default(""),
+});
+
+export type FuelCardInput = z.infer<typeof fuelCardInputSchema>;
+
+export async function listFuelCards(db: D1Database): Promise<FleetFuelCard[]> {
+  const res = await db
+    .prepare(
+      `SELECT id,card_no,card_limit,assigned_to,assigned_id_no,notes,created_at,updated_at
+       FROM fleet_fuel_cards
+       WHERE deleted_at IS NULL
+       ORDER BY created_at ASC, rowid ASC`,
+    )
+    .all<FleetFuelCard>();
+  return res.results;
+}
+
+export async function createFuelCard(
+  db: D1Database,
+  input: FuelCardInput,
+): Promise<FleetFuelCard> {
+  const id = crypto.randomUUID();
+  const now = new Date().toISOString();
+  await db
+    .prepare(
+      `INSERT INTO fleet_fuel_cards(id,card_no,card_limit,assigned_to,assigned_id_no,notes,created_at,updated_at)
+       VALUES(?,?,?,?,?,?,?,?)`,
+    )
+    .bind(
+      id,
+      input.card_no,
+      input.card_limit,
+      input.assigned_to,
+      input.assigned_id_no,
+      input.notes,
+      now,
+      now,
+    )
+    .run();
+  return { id, ...input, created_at: now, updated_at: now };
+}
+
+export async function updateFuelCard(
+  db: D1Database,
+  id: string,
+  input: FuelCardInput,
+): Promise<FleetFuelCard> {
+  const now = new Date().toISOString();
+  const res = await db
+    .prepare(
+      `UPDATE fleet_fuel_cards SET card_no=?,card_limit=?,assigned_to=?,assigned_id_no=?,notes=?,updated_at=?
+       WHERE id=? AND deleted_at IS NULL`,
+    )
+    .bind(
+      input.card_no,
+      input.card_limit,
+      input.assigned_to,
+      input.assigned_id_no,
+      input.notes,
+      now,
+      id,
+    )
+    .run();
+  if (!res.meta.changes) throw new HttpError("Fuel card not found.", 404);
+  const row = await db
+    .prepare(
+      `SELECT id,card_no,card_limit,assigned_to,assigned_id_no,notes,created_at,updated_at
+       FROM fleet_fuel_cards WHERE id=?`,
+    )
+    .bind(id)
+    .first<FleetFuelCard>();
+  if (!row) throw new HttpError("Fuel card not found.", 404);
+  return row;
+}
+
+export async function deleteFuelCard(db: D1Database, id: string) {
+  const now = new Date().toISOString();
+  const res = await db
+    .prepare(
+      "UPDATE fleet_fuel_cards SET deleted_at=?, updated_at=? WHERE id=? AND deleted_at IS NULL",
+    )
+    .bind(now, now, id)
+    .run();
+  if (!res.meta.changes) throw new HttpError("Fuel card not found.", 404);
 }
 
 export async function createVehicle(

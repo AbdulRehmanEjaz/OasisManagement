@@ -1,6 +1,6 @@
 import { XMLParser } from "fast-xml-parser";
 import { unzipSync, zipSync, strFromU8, strToU8 } from "fflate";
-import type { VehicleInput } from "./store";
+import type { FleetVehicle, VehicleInput } from "./store";
 
 export const FLEET_HEADERS = [
   "Car Name",
@@ -395,6 +395,73 @@ export function fleetImportTemplate(): Uint8Array {
     "xl/styles.xml": `<styleSheet xmlns="${MAIN_NS}"><fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><color rgb="FFFFFFFF"/><sz val="11"/><name val="Calibri"/></font></fonts><fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF155D3D"/></patternFill></fill></fills><borders count="1"><border/></borders><cellStyleXfs count="1"><xf/></cellStyleXfs><cellXfs count="2"><xf fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf><xf fontId="1" fillId="2" borderId="0" xfId="0" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`,
     "xl/worksheets/sheet1.xml": makeSheet([Array.from(FLEET_HEADERS), ...blankRows], true),
     "xl/worksheets/sheet2.xml": makeSheet(instructions, false),
+  };
+
+  return zipSync(
+    Object.fromEntries(
+      Object.entries(files).map(([path, xml]) => [
+        path,
+        strToU8('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' + xml),
+      ]),
+    ),
+  );
+}
+
+export function exportFleetWorkbook(vehicles: FleetVehicle[]): Uint8Array {
+  const colWidths = [24, 14, 20, 12, 20, 24, 18, 16, 22, 20, 15, 18, 15, 30];
+  const colsXml = colWidths
+    .map(
+      (w, i) =>
+        `<col min="${i + 1}" max="${i + 1}" width="${w}" customWidth="1"/>`,
+    )
+    .join("");
+
+  const dataRows = vehicles.map((v) => [
+    v.vehicle_name || "",
+    v.model || "",
+    v.plate_number || "",
+    v.fuel_type || "N/A",
+    v.owner || "",
+    v.driver_name || "",
+    v.driver_id_no || "",
+    v.project_number || "",
+    v.project_location || "",
+    v.fuel_card_no || "",
+    v.fuel_card_limit !== null && v.fuel_card_limit !== undefined
+      ? v.fuel_card_limit
+      : "",
+    v.phone_number || "",
+    v.monthly_rent_type === "amount" && v.monthly_rent !== null
+      ? v.monthly_rent
+      : "N/A",
+    v.notes || "",
+  ]);
+
+  const allRows: unknown[][] = [Array.from(FLEET_HEADERS), ...dataRows];
+  const rowsXml = allRows
+    .map(
+      (row, rIdx) =>
+        `<row r="${rIdx + 1}" ht="${rIdx === 0 ? 30 : 22}" customHeight="1">${row
+          .map((val, cIdx) => {
+            const ref = `${colLetter(cIdx)}${rIdx + 1}`;
+            if (rIdx > 0 && typeof val === "number") {
+              return `<c r="${ref}" s="0"><v>${val}</v></c>`;
+            }
+            return `<c r="${ref}" s="${rIdx === 0 ? 1 : 0}" t="inlineStr"><is><t xml:space="preserve">${esc(val)}</t></is></c>`;
+          })
+          .join("")}</row>`,
+    )
+    .join("");
+
+  const sheet1 = `<worksheet xmlns="${MAIN_NS}"><sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" state="frozen"/></sheetView></sheetViews><cols>${colsXml}</cols><sheetData>${rowsXml}</sheetData><autoFilter ref="A1:N${Math.max(1, allRows.length)}"/></worksheet>`;
+
+  const files: Record<string, string> = {
+    "[Content_Types].xml": `<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/></Types>`,
+    "_rels/.rels": `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="book" Type="${REL_NS}/officeDocument" Target="xl/workbook.xml"/></Relationships>`,
+    "xl/workbook.xml": `<workbook xmlns="${MAIN_NS}" xmlns:r="${REL_NS}"><sheets><sheet name="Vehicles" sheetId="1" r:id="s1"/></sheets></workbook>`,
+    "xl/_rels/workbook.xml.rels": `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="s1" Type="${REL_NS}/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="styles" Type="${REL_NS}/styles" Target="styles.xml"/></Relationships>`,
+    "xl/styles.xml": `<styleSheet xmlns="${MAIN_NS}"><fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><color rgb="FFFFFFFF"/><sz val="11"/><name val="Calibri"/></font></fonts><fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF155D3D"/></patternFill></fill></fills><borders count="1"><border/></borders><cellStyleXfs count="1"><xf/></cellStyleXfs><cellXfs count="2"><xf fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf><xf fontId="1" fillId="2" borderId="0" xfId="0" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`,
+    "xl/worksheets/sheet1.xml": sheet1,
   };
 
   return zipSync(
