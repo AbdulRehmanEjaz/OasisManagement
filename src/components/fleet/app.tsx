@@ -15,6 +15,7 @@ import {
 import type { FleetProfile, FleetVehicle } from "@/lib/fleet/store";
 import Modal from "../modal";
 import { Button } from "../ui/button";
+import FleetImport from "./import";
 
 type FormState = {
   vehicle_name: string;
@@ -343,6 +344,7 @@ export default function FleetApp({ profile }: { profile: FleetProfile }) {
           >
             <RefreshCw size={17} />
           </button>
+          {admin && <FleetImport onImported={load} />}
           {admin && (
             <button
               type="button"
@@ -660,21 +662,16 @@ export default function FleetApp({ profile }: { profile: FleetProfile }) {
               </label>
               <label>
                 Fuel Type
-                <input
-                  list="fleet-fuel-types"
+                <select
                   value={form.fuel_type}
                   onChange={(e) =>
                     setForm({ ...form, fuel_type: e.target.value })
                   }
-                  placeholder="Diesel, Petrol 91, Petrol 95…"
-                />
-                <datalist id="fleet-fuel-types">
-                  <option value="Diesel" />
-                  <option value="Petrol 91" />
-                  <option value="Petrol 95" />
-                  <option value="Hybrid" />
-                  <option value="Electric" />
-                </datalist>
+                >
+                  <option value="">Select fuel type</option>
+                  <option value="Diesel">Diesel</option>
+                  <option value="Petrol">Petrol</option>
+                </select>
               </label>
               <label>
                 Owner
