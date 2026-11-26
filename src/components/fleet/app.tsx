@@ -172,6 +172,7 @@ export default function FleetApp({ profile }: { profile: FleetProfile }) {
   const [fuelFilter, setFuelFilter] = useState("");
   const [rentFilter, setRentFilter] = useState("");
   const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState<number | "all">(15);
   const [editing, setEditing] = useState<FleetVehicle | "new" | null>(null);
   const [form, setForm] = useState<FormState>({ ...EMPTY_FORM });
   const [formError, setFormError] = useState("");
@@ -182,6 +183,7 @@ export default function FleetApp({ profile }: { profile: FleetProfile }) {
   const [cardSearch, setCardSearch] = useState("");
   const [cardStatusFilter, setCardStatusFilter] = useState("");
   const [cardPage, setCardPage] = useState(0);
+  const [cardPageSize, setCardPageSize] = useState<number | "all">(15);
   const [editingCard, setEditingCard] = useState<FleetFuelCard | "new" | null>(
     null,
   );
@@ -351,20 +353,31 @@ export default function FleetApp({ profile }: { profile: FleetProfile }) {
     });
   }, [allFuelCards, cardSearch, cardStatusFilter]);
 
-  const pageSize = 15;
-  const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const effectivePageSize = pageSize === "all" ? Math.max(1, filtered.length) : pageSize;
+  const pageCount = pageSize === "all" ? 1 : Math.max(1, Math.ceil(filtered.length / effectivePageSize));
   const currentPage = Math.min(page, pageCount - 1);
-  const display = filtered.slice(
-    currentPage * pageSize,
-    currentPage * pageSize + pageSize,
-  );
+  const display =
+    pageSize === "all"
+      ? filtered
+      : filtered.slice(
+          currentPage * effectivePageSize,
+          currentPage * effectivePageSize + effectivePageSize,
+        );
 
-  const cardPageCount = Math.max(1, Math.ceil(filteredCards.length / pageSize));
+  const effectiveCardPageSize =
+    cardPageSize === "all" ? Math.max(1, filteredCards.length) : cardPageSize;
+  const cardPageCount =
+    cardPageSize === "all"
+      ? 1
+      : Math.max(1, Math.ceil(filteredCards.length / effectiveCardPageSize));
   const currentCardPage = Math.min(cardPage, cardPageCount - 1);
-  const displayCards = filteredCards.slice(
-    currentCardPage * pageSize,
-    currentCardPage * pageSize + pageSize,
-  );
+  const displayCards =
+    cardPageSize === "all"
+      ? filteredCards
+      : filteredCards.slice(
+          currentCardPage * effectiveCardPageSize,
+          currentCardPage * effectiveCardPageSize + effectiveCardPageSize,
+        );
 
   function openNew() {
     setForm({ ...EMPTY_FORM });
@@ -746,6 +759,20 @@ export default function FleetApp({ profile }: { profile: FleetProfile }) {
                     Clear
                   </button>
                 )}
+                <select
+                  aria-label="Rows per page"
+                  value={String(pageSize)}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setPageSize(val === "all" ? "all" : Number(val));
+                    setPage(0);
+                  }}
+                >
+                  <option value="15">Show 15</option>
+                  <option value="30">Show 30</option>
+                  <option value="50">Show 50</option>
+                  <option value="all">Show All</option>
+                </select>
                 <a
                   className="fleet-export-btn"
                   href="/api/fleet/export"
@@ -777,7 +804,7 @@ export default function FleetApp({ profile }: { profile: FleetProfile }) {
                   {display.map((v, idx) => (
                     <tr key={v.id}>
                       <td style={{ color: "var(--muted)", fontWeight: 600 }}>
-                        {currentPage * pageSize + idx + 1}
+                        {currentPage * effectivePageSize + idx + 1}
                       </td>
                       <td>
                         <strong>{v.vehicle_name}</strong>
@@ -963,6 +990,20 @@ export default function FleetApp({ profile }: { profile: FleetProfile }) {
                   <option value="Assigned">Assigned</option>
                   <option value="Inventory">Inventory (Unused)</option>
                 </select>
+                <select
+                  aria-label="Fuel cards rows per page"
+                  value={String(cardPageSize)}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setCardPageSize(val === "all" ? "all" : Number(val));
+                    setCardPage(0);
+                  }}
+                >
+                  <option value="15">Show 15</option>
+                  <option value="30">Show 30</option>
+                  <option value="50">Show 50</option>
+                  <option value="all">Show All</option>
+                </select>
                 {(cardSearch || cardStatusFilter) && (
                   <button
                     type="button"
@@ -997,7 +1038,7 @@ export default function FleetApp({ profile }: { profile: FleetProfile }) {
                   {displayCards.map((c, idx) => (
                     <tr key={c.key}>
                       <td style={{ color: "var(--muted)", fontWeight: 600 }}>
-                        {currentCardPage * pageSize + idx + 1}
+                        {currentCardPage * effectiveCardPageSize + idx + 1}
                       </td>
                       <td>
                         <strong>{c.card_no}</strong>
