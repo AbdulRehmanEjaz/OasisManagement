@@ -157,13 +157,13 @@ function parseOptionalNumber(raw: string, label: string): number | null {
 
 function normalizeFuelType(raw: string): string {
   const v = raw.trim();
-  if (!v) return "";
+  if (!v || /^(n\/?a|-|—|none)$/i.test(v)) return "N/A";
   const lower = v.toLowerCase();
   if (lower === "diesel" || v === "ديزل") return "Diesel";
   if (lower === "petrol" || lower === "gasoline" || lower === "benzin" || v === "بنزين") {
     return "Petrol";
   }
-  throw new Error(`Fuel type must be Diesel or Petrol (got "${v}").`);
+  throw new Error(`Fuel type must be Diesel, Petrol, or N/A (got "${v}").`);
 }
 
 export function parseFleetWorkbook(bytes: Uint8Array): FleetImportRow[] {
@@ -343,7 +343,7 @@ export function fleetImportTemplate(): Uint8Array {
       'Fill the "Vehicles" worksheet. Keep the header row unchanged. Arabic text and Arabic/English digits are supported.',
     ],
     ['Required columns: "Car Name" and "Plate No. (AR)".'],
-    ['"Fuel type" has a dropdown: choose Diesel or Petrol.'],
+    ['"Fuel type" has a dropdown: choose Diesel, Petrol, or N/A (blank or "-" becomes N/A).'],
     ['"Card Limit" is in Saudi Riyal (SAR). Enter a number or leave blank.'],
     [
       '"Monthly Rent" accepts a numeric SAR amount, or leave blank / write N/A for non-rented vehicles.',
@@ -377,7 +377,7 @@ export function fleetImportTemplate(): Uint8Array {
       .join("");
 
     const extra = isDataSheet
-      ? `<autoFilter ref="A1:N1"/><dataValidations count="1"><dataValidation type="list" allowBlank="1" showInputMessage="1" showErrorMessage="1" sqref="D2:D500"><formula1>"Diesel,Petrol"</formula1></dataValidation></dataValidations>`
+      ? `<autoFilter ref="A1:N1"/><dataValidations count="1"><dataValidation type="list" allowBlank="1" showInputMessage="1" showErrorMessage="1" sqref="D2:D500"><formula1>"Diesel,Petrol,N/A"</formula1></dataValidation></dataValidations>`
       : "";
 
     return `<worksheet xmlns="${MAIN_NS}"><sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" state="frozen"/></sheetView></sheetViews><cols>${colsXml}</cols><sheetData>${rowsXml}</sheetData>${extra}</worksheet>`;

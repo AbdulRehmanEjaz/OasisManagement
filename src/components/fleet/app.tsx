@@ -663,12 +663,12 @@ export default function FleetApp({ profile }: { profile: FleetProfile }) {
               <label>
                 Fuel Type
                 <select
-                  value={form.fuel_type}
+                  value={form.fuel_type || "N/A"}
                   onChange={(e) =>
                     setForm({ ...form, fuel_type: e.target.value })
                   }
                 >
-                  <option value="">Select fuel type</option>
+                  <option value="N/A">N/A</option>
                   <option value="Diesel">Diesel</option>
                   <option value="Petrol">Petrol</option>
                 </select>
