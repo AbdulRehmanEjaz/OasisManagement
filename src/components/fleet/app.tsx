@@ -60,8 +60,10 @@ type UnifiedFuelCard = {
   card_limit: number | null;
   assigned_to: string;
   assigned_id_no: string;
-  vehicle_label: string;
-  project_label: string;
+  vehicle_name: string;
+  plate_number: string;
+  project_number: string;
+  project_location: string;
   status: "Assigned" | "Inventory";
   notes: string;
   rawCard?: FleetFuelCard;
@@ -291,12 +293,10 @@ export default function FleetApp({ profile }: { profile: FleetProfile }) {
         card_limit: v.fuel_card_limit,
         assigned_to: v.driver_name || v.vehicle_name,
         assigned_id_no: v.driver_id_no || "",
-        vehicle_label: [v.vehicle_name, v.plate_number]
-          .filter((x) => x && x !== "-")
-          .join(" · "),
-        project_label: [v.project_number, v.project_location]
-          .filter(Boolean)
-          .join(" · "),
+        vehicle_name: v.vehicle_name || "",
+        plate_number: v.plate_number || "",
+        project_number: v.project_number || "",
+        project_location: v.project_location || "",
         status: "Assigned",
         notes: v.notes || "",
       });
@@ -310,8 +310,10 @@ export default function FleetApp({ profile }: { profile: FleetProfile }) {
         card_limit: c.card_limit,
         assigned_to: isInv ? "Inventory" : c.assigned_to,
         assigned_id_no: isInv ? "" : c.assigned_id_no || "",
-        vehicle_label: isInv ? "Unused · In Inventory" : "Standalone Card",
-        project_label: "",
+        vehicle_name: isInv ? "Inventory" : "Standalone",
+        plate_number: "",
+        project_number: "",
+        project_location: "",
         status: isInv ? "Inventory" : "Assigned",
         notes: c.notes || "",
         rawCard: c,
@@ -343,8 +345,10 @@ export default function FleetApp({ profile }: { profile: FleetProfile }) {
         c.card_no,
         c.assigned_to,
         c.assigned_id_no,
-        c.vehicle_label,
-        c.project_label,
+        c.vehicle_name,
+        c.plate_number,
+        c.project_number,
+        c.project_location,
         c.notes,
       ]
         .join(" ")
@@ -1009,7 +1013,10 @@ export default function FleetApp({ profile }: { profile: FleetProfile }) {
                     <th className="col-fit">Card Limit</th>
                     <th>Assigned To</th>
                     <th className="col-fit">ID Number</th>
-                    <th>Vehicle / Source</th>
+                    <th>Vehicle</th>
+                    <th className="col-fit">Plate No. (AR)</th>
+                    <th className="col-fit">Project No</th>
+                    <th>Project Location</th>
                     <th className="col-fit">Status</th>
                     <th>Notes</th>
                     {admin && <th className="col-fit">Actions</th>}
@@ -1027,16 +1034,10 @@ export default function FleetApp({ profile }: { profile: FleetProfile }) {
                       <td className="col-fit">{formatLimit(c.card_limit)}</td>
                       <td>{c.assigned_to}</td>
                       <td className="col-fit">{c.assigned_id_no || "—"}</td>
-                      <td>
-                        {c.vehicle_label}
-                        {c.project_label && (
-                          <small
-                            style={{ display: "block", color: "var(--muted)" }}
-                          >
-                            {c.project_label}
-                          </small>
-                        )}
-                      </td>
+                      <td>{c.vehicle_name || "—"}</td>
+                      <td className="col-fit" dir="auto">{c.plate_number || "—"}</td>
+                      <td className="col-fit">{c.project_number || "—"}</td>
+                      <td>{c.project_location || "—"}</td>
                       <td className="col-fit">
                         <span
                           className={
