@@ -115,12 +115,22 @@ const HEADER_ALIASES: Record<FleetColumnKey, string[]> = {
 function matchHeader(raw: string): FleetColumnKey | undefined {
   const norm = normalizeHeader(raw);
   if (!norm) return undefined;
+  let best: { key: FleetColumnKey; len: number; exact: boolean } | undefined;
   for (const key of FLEET_COLUMN_KEYS) {
-    if (HEADER_ALIASES[key].some((alias) => norm === alias || norm.startsWith(alias + " "))) {
-      return key;
+    for (const alias of HEADER_ALIASES[key]) {
+      const exact = norm === alias;
+      const prefix = !exact && norm.startsWith(alias + " ");
+      if (!exact && !prefix) continue;
+      if (
+        !best ||
+        (exact && !best.exact) ||
+        (exact === best.exact && alias.length > best.len)
+      ) {
+        best = { key, len: alias.length, exact };
+      }
     }
   }
-  return undefined;
+  return best?.key;
 }
 
 function parseOptionalNumber(raw: string, label: string): number | null {
