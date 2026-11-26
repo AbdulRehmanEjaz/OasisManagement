@@ -245,10 +245,105 @@ export async function listFuelCards(db: D1Database): Promise<FleetFuelCard[]> {
   return res.results;
 }
 
+function normUnique(val: string | null | undefined) {
+  const s = (val || "").trim();
+  if (!s || /^(-|—|n\/?a|none)$/i.test(s)) return "";
+  return s.toLowerCase();
+}
+
+async function checkVehicleDuplicates(
+  db: D1Database,
+  input: VehicleInput,
+  excludeId?: string,
+) {
+  const plate = normUnique(input.plate_number);
+  const card = normUnique(input.fuel_card_no);
+  const driverId = normUnique(input.driver_id_no);
+
+  const vehicles = await listVehicles(db);
+  for (let i = 0; i < vehicles.length; i++) {
+    const v = vehicles[i];
+    if (excludeId && v.id === excludeId) continue;
+    const ref = `Fleet Registry #${i + 1} (${v.vehicle_name}${v.driver_name ? `, Driver: ${v.driver_name}` : ""})`;
+    if (plate && normUnique(v.plate_number) === plate) {
+      throw new HttpError(
+        `Duplicate Plate No. "${input.plate_number}" — already exists in ${ref}.`,
+        409,
+      );
+    }
+    if (card && normUnique(v.fuel_card_no) === card) {
+      throw new HttpError(
+        `Duplicate Fuel Card No. "${input.fuel_card_no}" — already assigned in ${ref}.`,
+        409,
+      );
+    }
+    if (driverId && normUnique(v.driver_id_no) === driverId) {
+      throw new HttpError(
+        `Duplicate Driver ID "${input.driver_id_no}" — already assigned in ${ref}.`,
+        409,
+      );
+    }
+  }
+
+  if (card) {
+    const cards = await listFuelCards(db);
+    for (let i = 0; i < cards.length; i++) {
+      const c = cards[i];
+      if (normUnique(c.card_no) === card) {
+        throw new HttpError(
+          `Duplicate Fuel Card No. "${input.fuel_card_no}" — already exists in Fuel Cards tab (${c.assigned_to}).`,
+          409,
+        );
+      }
+    }
+  }
+}
+
+async function checkFuelCardDuplicates(
+  db: D1Database,
+  input: FuelCardInput,
+  excludeId?: string,
+) {
+  const card = normUnique(input.card_no);
+  const idNo = normUnique(input.assigned_id_no);
+
+  if (card) {
+    const vehicles = await listVehicles(db);
+    for (let i = 0; i < vehicles.length; i++) {
+      const v = vehicles[i];
+      if (normUnique(v.fuel_card_no) === card) {
+        throw new HttpError(
+          `Duplicate Fuel Card No. "${input.card_no}" — already assigned in Fleet Registry #${i + 1} (${v.vehicle_name}, Plate: ${v.plate_number}, Driver: ${v.driver_name || "Unassigned"}).`,
+          409,
+        );
+      }
+    }
+  }
+
+  const cards = await listFuelCards(db);
+  for (let i = 0; i < cards.length; i++) {
+    const c = cards[i];
+    if (excludeId && c.id === excludeId) continue;
+    if (card && normUnique(c.card_no) === card) {
+      throw new HttpError(
+        `Duplicate Fuel Card No. "${input.card_no}" — already exists in Fuel Cards tab (${c.assigned_to}).`,
+        409,
+      );
+    }
+    if (idNo && normUnique(c.assigned_id_no) === idNo) {
+      throw new HttpError(
+        `Duplicate Driver ID "${input.assigned_id_no}" — already assigned to card "${c.card_no}" in Fuel Cards tab (${c.assigned_to}).`,
+        409,
+      );
+    }
+  }
+}
+
 export async function createFuelCard(
   db: D1Database,
   input: FuelCardInput,
 ): Promise<FleetFuelCard> {
+  await checkFuelCardDuplicates(db, input);
   const id = crypto.randomUUID();
   const now = new Date().toISOString();
   await db
@@ -275,6 +370,7 @@ export async function updateFuelCard(
   id: string,
   input: FuelCardInput,
 ): Promise<FleetFuelCard> {
+  await checkFuelCardDuplicates(db, input, id);
   const now = new Date().toISOString();
   const res = await db
     .prepare(
@@ -318,6 +414,7 @@ export async function createVehicle(
   db: D1Database,
   input: VehicleInput,
 ): Promise<FleetVehicle> {
+  await checkVehicleDuplicates(db, input);
   const id = crypto.randomUUID();
   const now = new Date().toISOString();
   await db
@@ -357,6 +454,7 @@ export async function updateVehicle(
   id: string,
   input: VehicleInput,
 ): Promise<FleetVehicle> {
+  await checkVehicleDuplicates(db, input, id);
   const now = new Date().toISOString();
   const res = await db
     .prepare(

@@ -171,6 +171,12 @@ function parseOptionalLimit(raw: string): number | null {
   return n;
 }
 
+function normDup(val: string | null | undefined) {
+  const s = (val || "").trim();
+  if (!s || /^(-|—|n\/?a|none)$/i.test(s)) return "";
+  return s.toLowerCase();
+}
+
 function fuelBadgeClass(fuel: string) {
   const f = (fuel || "").toLowerCase();
   if (f === "diesel") return "fleet-badge fleet-badge-diesel";
@@ -297,6 +303,33 @@ export default function FleetApp({ profile }: { profile: FleetProfile }) {
     }
     return { total: vehicles.length, rentedCount, totalRent, totalFuelLimit };
   }, [vehicles]);
+
+  const duplicates = useMemo(() => {
+    const plates = new Map<string, number>();
+    const driverIds = new Map<string, number>();
+    const cards = new Map<string, number>();
+    const phones = new Map<string, number>();
+    const bump = (m: Map<string, number>, v: string | null | undefined) => {
+      const k = normDup(v);
+      if (k) m.set(k, (m.get(k) || 0) + 1);
+    };
+    for (const v of vehicles) {
+      bump(plates, v.plate_number);
+      bump(driverIds, v.driver_id_no);
+      bump(cards, v.fuel_card_no);
+      bump(phones, v.phone_number);
+    }
+    for (const c of standaloneCards) {
+      bump(cards, c.card_no);
+      if (!isUnassigned(c.assigned_to)) bump(driverIds, c.assigned_id_no);
+    }
+    return {
+      plate: (v: string) => (plates.get(normDup(v)) || 0) > 1,
+      driverId: (v: string) => (driverIds.get(normDup(v)) || 0) > 1,
+      card: (v: string) => (cards.get(normDup(v)) || 0) > 1,
+      phone: (v: string) => (phones.get(normDup(v)) || 0) > 1,
+    };
+  }, [vehicles, standaloneCards]);
 
   const driverDirectory = useMemo(() => {
     const map = new Map<string, string>();
@@ -827,7 +860,13 @@ export default function FleetApp({ profile }: { profile: FleetProfile }) {
                         <strong>{v.vehicle_name}</strong>
                       </td>
                       <td className="col-fit">{v.model || "—"}</td>
-                      <td className="col-fit" dir="auto">{v.plate_number}</td>
+                      <td
+                        className={`col-fit${duplicates.plate(v.plate_number) ? " fleet-dup-cell" : ""}`}
+                        title={duplicates.plate(v.plate_number) ? "Duplicate Plate No." : undefined}
+                        dir="auto"
+                      >
+                        {v.plate_number}
+                      </td>
                       <td className="col-fit">
                         <span className={fuelBadgeClass(v.fuel_type)}>
                           {v.fuel_type || "N/A"}
@@ -835,12 +874,27 @@ export default function FleetApp({ profile }: { profile: FleetProfile }) {
                       </td>
                       <td className="col-fit">{v.owner || "—"}</td>
                       <td>{v.driver_name || "—"}</td>
-                      <td className="col-fit">{v.driver_id_no || "—"}</td>
+                      <td
+                        className={`col-fit${duplicates.driverId(v.driver_id_no) ? " fleet-dup-cell" : ""}`}
+                        title={duplicates.driverId(v.driver_id_no) ? "Duplicate Driver ID" : undefined}
+                      >
+                        {v.driver_id_no || "—"}
+                      </td>
                       <td className="col-fit">{v.project_number || "—"}</td>
                       <td>{v.project_location || "—"}</td>
-                      <td className="col-fit">{v.fuel_card_no || "—"}</td>
+                      <td
+                        className={`col-fit${duplicates.card(v.fuel_card_no) ? " fleet-dup-cell" : ""}`}
+                        title={duplicates.card(v.fuel_card_no) ? "Duplicate Fuel Card No." : undefined}
+                      >
+                        {v.fuel_card_no || "—"}
+                      </td>
                       <td className="col-fit">{formatLimit(v.fuel_card_limit)}</td>
-                      <td className="col-fit">{v.phone_number || "—"}</td>
+                      <td
+                        className={`col-fit${duplicates.phone(v.phone_number) ? " fleet-dup-cell" : ""}`}
+                        title={duplicates.phone(v.phone_number) ? "Duplicate Phone No." : undefined}
+                      >
+                        {v.phone_number || "—"}
+                      </td>
                       <td className="col-fit">{formatRent(v)}</td>
                       <td className="col-notes">{v.notes || "—"}</td>
                       <td className="col-fit">
@@ -1060,14 +1114,28 @@ export default function FleetApp({ profile }: { profile: FleetProfile }) {
                       <td className="col-fit" style={{ color: "var(--muted)", fontWeight: 600 }}>
                         {currentCardPage * effectiveCardPageSize + idx + 1}
                       </td>
-                      <td className="col-fit">
+                      <td
+                        className={`col-fit${duplicates.card(c.card_no) ? " fleet-dup-cell" : ""}`}
+                        title={duplicates.card(c.card_no) ? "Duplicate Fuel Card No." : undefined}
+                      >
                         <strong>{c.card_no}</strong>
                       </td>
                       <td className="col-fit">{formatLimit(c.card_limit)}</td>
                       <td>{c.assigned_to}</td>
-                      <td className="col-fit">{c.assigned_id_no || "—"}</td>
+                      <td
+                        className={`col-fit${duplicates.driverId(c.assigned_id_no) ? " fleet-dup-cell" : ""}`}
+                        title={duplicates.driverId(c.assigned_id_no) ? "Duplicate Driver ID" : undefined}
+                      >
+                        {c.assigned_id_no || "—"}
+                      </td>
                       <td>{c.vehicle_name || "—"}</td>
-                      <td className="col-fit" dir="auto">{c.plate_number || "—"}</td>
+                      <td
+                        className={`col-fit${duplicates.plate(c.plate_number) ? " fleet-dup-cell" : ""}`}
+                        title={duplicates.plate(c.plate_number) ? "Duplicate Plate No." : undefined}
+                        dir="auto"
+                      >
+                        {c.plate_number || "—"}
+                      </td>
                       <td className="col-fit">{c.project_number || "—"}</td>
                       <td>{c.project_location || "—"}</td>
                       <td className="col-fit">
