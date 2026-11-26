@@ -545,7 +545,7 @@ export default function FleetApp({ profile }: { profile: FleetProfile }) {
   }
 
   return (
-    <main className="kpi-app">
+    <main className="kpi-app fleet-app">
       <header className="kpi-app-header">
         <a href="/" className="kpi-brand" aria-label="Back to Operations Hub">
           <img
@@ -586,57 +586,6 @@ export default function FleetApp({ profile }: { profile: FleetProfile }) {
           </button>
         </div>
       </header>
-
-      <nav className="kpi-app-nav" aria-label="Vehicles panel navigation">
-        <button
-          aria-current={tab === "vehicles" ? "page" : undefined}
-          type="button"
-          onClick={() => setTab("vehicles")}
-        >
-          <Car size={18} />
-          Fleet Registry
-        </button>
-        <button
-          aria-current={tab === "cards" ? "page" : undefined}
-          type="button"
-          onClick={() => setTab("cards")}
-        >
-          <CreditCard size={18} />
-          Fuel Cards
-        </button>
-
-        <div className="kpi-nav-actions">
-          <button
-            type="button"
-            onClick={() => void load()}
-            aria-label="Refresh fleet data"
-          >
-            <RefreshCw size={17} />
-            Refresh
-          </button>
-          {admin && tab === "vehicles" && <FleetImport onImported={load} />}
-          {admin && tab === "vehicles" && (
-            <button
-              type="button"
-              className="kpi-new-report"
-              onClick={openNew}
-            >
-              <Plus size={18} />
-              Add Vehicle
-            </button>
-          )}
-          {admin && tab === "cards" && (
-            <button
-              type="button"
-              className="kpi-new-report"
-              onClick={openNewCard}
-            >
-              <Plus size={18} />
-              Add Fuel Card
-            </button>
-          )}
-        </div>
-      </nav>
 
       {error && (
         <p className="notice error" role="alert">
@@ -698,17 +647,25 @@ export default function FleetApp({ profile }: { profile: FleetProfile }) {
           </section>
 
           <section className="fleet-panel">
-            <div className="fleet-toolbar">
-              <div className="fleet-toolbar-title">
-                <h2>Vehicle Records</h2>
-                <p>
-                  {filtered.length} vehicle{filtered.length === 1 ? "" : "s"}
-                  {filtered.length !== vehicles.length
-                    ? ` of ${vehicles.length} total`
-                    : ""}
-                </p>
+            <div className="fleet-topbar">
+              <div className="fleet-tabs" role="tablist" aria-label="Fleet sections">
+                <button
+                  aria-current="page"
+                  type="button"
+                  onClick={() => setTab("vehicles")}
+                >
+                  <Car size={16} />
+                  Fleet Registry ({vehicles.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTab("cards")}
+                >
+                  <CreditCard size={16} />
+                  Fuel Cards ({allFuelCards.length})
+                </button>
               </div>
-              <div className="fleet-toolbar-controls">
+              <div className="fleet-topbar-actions">
                 <input
                   type="search"
                   aria-label="Search vehicles"
@@ -727,7 +684,7 @@ export default function FleetApp({ profile }: { profile: FleetProfile }) {
                     setPage(0);
                   }}
                 >
-                  <option value="">All fuel types</option>
+                  <option value="">All fuel</option>
                   {fuelTypes.map((ft) => (
                     <option key={ft} value={ft}>
                       {ft}
@@ -746,19 +703,6 @@ export default function FleetApp({ profile }: { profile: FleetProfile }) {
                   <option value="rented">Rented</option>
                   <option value="na">N/A</option>
                 </select>
-                {(search || fuelFilter || rentFilter) && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSearch("");
-                      setFuelFilter("");
-                      setRentFilter("");
-                      setPage(0);
-                    }}
-                  >
-                    Clear
-                  </button>
-                )}
                 <select
                   aria-label="Rows per page"
                   value={String(pageSize)}
@@ -773,92 +717,103 @@ export default function FleetApp({ profile }: { profile: FleetProfile }) {
                   <option value="50">Show 50</option>
                   <option value="all">Show All</option>
                 </select>
+                {(search || fuelFilter || rentFilter) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSearch("");
+                      setFuelFilter("");
+                      setRentFilter("");
+                      setPage(0);
+                    }}
+                  >
+                    Clear
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => void load()}
+                  aria-label="Refresh fleet data"
+                >
+                  <RefreshCw size={15} />
+                </button>
                 <a
                   className="fleet-export-btn"
                   href="/api/fleet/export"
                   download
                 >
                   <Download size={15} />
-                  Export Excel (.xlsx)
+                  Export
                 </a>
+                {admin && <FleetImport onImported={load} />}
+                {admin && (
+                  <button
+                    type="button"
+                    className="fleet-primary-btn"
+                    onClick={openNew}
+                  >
+                    <Plus size={16} />
+                    Add Vehicle
+                  </button>
+                )}
               </div>
             </div>
 
-            <div className="kpi-table-scroll">
-              <table>
+            <div className="fleet-table-wrap">
+              <table className="fleet-table">
                 <thead>
                   <tr>
-                    <th>#</th>
-                    <th>Vehicle &amp; Model</th>
-                    <th>Plate No. (AR)</th>
-                    <th>Fuel Type</th>
-                    <th>Owner</th>
-                    <th>Driver &amp; Phone</th>
-                    <th>Project</th>
-                    <th>Fuel Card &amp; Limit</th>
-                    <th>Rent</th>
-                    <th>Actions</th>
+                    <th className="col-fit">#</th>
+                    <th>Car Name</th>
+                    <th className="col-fit">Model</th>
+                    <th className="col-fit">Plate No. (AR)</th>
+                    <th className="col-fit">Fuel</th>
+                    <th className="col-fit">Owner</th>
+                    <th>Driver Name</th>
+                    <th className="col-fit">Driver ID</th>
+                    <th className="col-fit">Project No</th>
+                    <th>Project Location</th>
+                    <th className="col-fit">Fuel Card No.</th>
+                    <th className="col-fit">Card Limit</th>
+                    <th className="col-fit">Phone No.</th>
+                    <th className="col-fit">Monthly Rent</th>
+                    <th>Notes</th>
+                    <th className="col-fit">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {display.map((v, idx) => (
                     <tr key={v.id}>
-                      <td style={{ color: "var(--muted)", fontWeight: 600 }}>
+                      <td className="col-fit" style={{ color: "var(--muted)", fontWeight: 600 }}>
                         {currentPage * effectivePageSize + idx + 1}
                       </td>
                       <td>
                         <strong>{v.vehicle_name}</strong>
-                        {v.model && v.model !== "-" && (
-                          <small
-                            style={{ display: "block", color: "var(--muted)" }}
-                          >
-                            {v.model}
-                          </small>
-                        )}
                       </td>
-                      <td dir="auto">{v.plate_number}</td>
-                      <td>
+                      <td className="col-fit">{v.model || "—"}</td>
+                      <td className="col-fit" dir="auto">{v.plate_number}</td>
+                      <td className="col-fit">
                         <span className={fuelBadgeClass(v.fuel_type)}>
                           {v.fuel_type || "N/A"}
                         </span>
                       </td>
-                      <td>{v.owner || "—"}</td>
-                      <td>
-                        {v.driver_name || "—"}
-                        {v.phone_number && (
-                          <small
-                            style={{ display: "block", color: "var(--muted)" }}
-                          >
-                            {v.phone_number}
-                          </small>
-                        )}
-                      </td>
-                      <td>
-                        {v.project_number || "—"}
-                        {v.project_location && (
-                          <small
-                            style={{ display: "block", color: "var(--muted)" }}
-                          >
-                            {v.project_location}
-                          </small>
-                        )}
-                      </td>
-                      <td>
-                        {v.fuel_card_no || "—"}
-                        <small
-                          style={{ display: "block", color: "var(--muted)" }}
-                        >
-                          Limit: {formatLimit(v.fuel_card_limit)}
-                        </small>
-                      </td>
-                      <td>{formatRent(v)}</td>
-                      <td>
+                      <td className="col-fit">{v.owner || "—"}</td>
+                      <td>{v.driver_name || "—"}</td>
+                      <td className="col-fit">{v.driver_id_no || "—"}</td>
+                      <td className="col-fit">{v.project_number || "—"}</td>
+                      <td>{v.project_location || "—"}</td>
+                      <td className="col-fit">{v.fuel_card_no || "—"}</td>
+                      <td className="col-fit">{formatLimit(v.fuel_card_limit)}</td>
+                      <td className="col-fit">{v.phone_number || "—"}</td>
+                      <td className="col-fit">{formatRent(v)}</td>
+                      <td className="col-notes">{v.notes || "—"}</td>
+                      <td className="col-fit">
                         <div className="kpi-row-actions">
                           <button
                             aria-label={`View ${v.vehicle_name}`}
                             onClick={() => setDetail(v)}
                           >
-                            <Eye size={16} />
+                            <Eye size={15} />
                           </button>
                           {admin && (
                             <>
@@ -958,16 +913,25 @@ export default function FleetApp({ profile }: { profile: FleetProfile }) {
           </section>
 
           <section className="fleet-panel">
-            <div className="fleet-toolbar">
-              <div className="fleet-toolbar-title">
-                <h2>Fuel Cards Directory</h2>
-                <p>
-                  {filteredCards.length} card
-                  {filteredCards.length === 1 ? "" : "s"} (vehicle-assigned
-                  &amp; inventory)
-                </p>
+            <div className="fleet-topbar">
+              <div className="fleet-tabs" role="tablist" aria-label="Fleet sections">
+                <button
+                  type="button"
+                  onClick={() => setTab("vehicles")}
+                >
+                  <Car size={16} />
+                  Fleet Registry ({vehicles.length})
+                </button>
+                <button
+                  aria-current="page"
+                  type="button"
+                  onClick={() => setTab("cards")}
+                >
+                  <CreditCard size={16} />
+                  Fuel Cards ({allFuelCards.length})
+                </button>
               </div>
-              <div className="fleet-toolbar-controls">
+              <div className="fleet-topbar-actions">
                 <input
                   type="search"
                   aria-label="Search fuel cards"
@@ -1016,36 +980,53 @@ export default function FleetApp({ profile }: { profile: FleetProfile }) {
                     Clear
                   </button>
                 )}
+                <button
+                  type="button"
+                  onClick={() => void load()}
+                  aria-label="Refresh fuel cards"
+                >
+                  <RefreshCw size={15} />
+                </button>
+                {admin && (
+                  <button
+                    type="button"
+                    className="fleet-primary-btn"
+                    onClick={openNewCard}
+                  >
+                    <Plus size={16} />
+                    Add Fuel Card
+                  </button>
+                )}
               </div>
             </div>
 
-            <div className="kpi-table-scroll">
-              <table>
+            <div className="fleet-table-wrap">
+              <table className="fleet-table">
                 <thead>
                   <tr>
-                    <th>#</th>
-                    <th>Fuel Card No.</th>
-                    <th>Card Limit</th>
+                    <th className="col-fit">#</th>
+                    <th className="col-fit">Fuel Card No.</th>
+                    <th className="col-fit">Card Limit</th>
                     <th>Assigned To</th>
-                    <th>ID Number</th>
+                    <th className="col-fit">ID Number</th>
                     <th>Vehicle / Source</th>
-                    <th>Status</th>
+                    <th className="col-fit">Status</th>
                     <th>Notes</th>
-                    {admin && <th>Actions</th>}
+                    {admin && <th className="col-fit">Actions</th>}
                   </tr>
                 </thead>
                 <tbody>
                   {displayCards.map((c, idx) => (
                     <tr key={c.key}>
-                      <td style={{ color: "var(--muted)", fontWeight: 600 }}>
+                      <td className="col-fit" style={{ color: "var(--muted)", fontWeight: 600 }}>
                         {currentCardPage * effectiveCardPageSize + idx + 1}
                       </td>
-                      <td>
+                      <td className="col-fit">
                         <strong>{c.card_no}</strong>
                       </td>
-                      <td>{formatLimit(c.card_limit)}</td>
+                      <td className="col-fit">{formatLimit(c.card_limit)}</td>
                       <td>{c.assigned_to}</td>
-                      <td>{c.assigned_id_no || "—"}</td>
+                      <td className="col-fit">{c.assigned_id_no || "—"}</td>
                       <td>
                         {c.vehicle_label}
                         {c.project_label && (
@@ -1056,7 +1037,7 @@ export default function FleetApp({ profile }: { profile: FleetProfile }) {
                           </small>
                         )}
                       </td>
-                      <td>
+                      <td className="col-fit">
                         <span
                           className={
                             c.status === "Inventory"
@@ -1067,22 +1048,22 @@ export default function FleetApp({ profile }: { profile: FleetProfile }) {
                           {c.status}
                         </span>
                       </td>
-                      <td>{c.notes || "—"}</td>
+                      <td className="col-notes">{c.notes || "—"}</td>
                       {admin && (
-                        <td>
+                        <td className="col-fit">
                           {c.source === "standalone" && c.rawCard ? (
                             <div className="kpi-row-actions">
                               <button
                                 aria-label={`Edit card ${c.card_no}`}
                                 onClick={() => openEditCard(c.rawCard!)}
                               >
-                                <Pencil size={16} />
+                                <Pencil size={15} />
                               </button>
                               <button
                                 aria-label={`Delete card ${c.card_no}`}
                                 onClick={() => setDeletingCard(c.rawCard!)}
                               >
-                                <Trash2 size={16} />
+                                <Trash2 size={15} />
                               </button>
                             </div>
                           ) : (
