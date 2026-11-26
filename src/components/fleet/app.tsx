@@ -157,8 +157,18 @@ function formatRent(v: FleetVehicle) {
 }
 
 function formatLimit(limit: number | null) {
-  if (limit === null || limit === undefined) return "—";
+  if (limit === null || limit === undefined) return "N/A";
   return `${formatNumber(limit)} SAR`;
+}
+
+function parseOptionalLimit(raw: string): number | null {
+  const s = raw.trim();
+  if (!s || /^(n\/?a|-|—|none)$/i.test(s)) return null;
+  const n = Number(s);
+  if (!Number.isFinite(n) || n < 0) {
+    throw new Error("Card Limit must be a non-negative number or N/A.");
+  }
+  return n;
 }
 
 function fuelBadgeClass(fuel: string) {
@@ -453,8 +463,7 @@ export default function FleetApp({ profile }: { profile: FleetProfile }) {
           project_number: form.project_number,
           project_location: form.project_location,
           fuel_card_no: form.fuel_card_no,
-          fuel_card_limit:
-            form.fuel_card_limit === "" ? null : Number(form.fuel_card_limit),
+          fuel_card_limit: parseOptionalLimit(form.fuel_card_limit),
           phone_number: form.phone_number,
           notes: form.notes,
         },
@@ -522,8 +531,7 @@ export default function FleetApp({ profile }: { profile: FleetProfile }) {
         id: editingCard && editingCard !== "new" ? editingCard.id : undefined,
         card: {
           card_no: cardForm.card_no,
-          card_limit:
-            cardForm.card_limit === "" ? null : Number(cardForm.card_limit),
+          card_limit: parseOptionalLimit(cardForm.card_limit),
           assigned_to,
           assigned_id_no: isInv ? "" : cardForm.assigned_id_no,
           notes: cardForm.notes,
@@ -1289,14 +1297,13 @@ export default function FleetApp({ profile }: { profile: FleetProfile }) {
               <label>
                 Card Limit (SAR)
                 <input
-                  type="number"
-                  min="0"
-                  step="0.01"
+                  type="text"
+                  inputMode="decimal"
                   value={form.fuel_card_limit}
                   onChange={(e) =>
                     setForm({ ...form, fuel_card_limit: e.target.value })
                   }
-                  placeholder="e.g. 1500"
+                  placeholder="e.g. 1500 or N/A"
                 />
               </label>
               <label>
@@ -1365,14 +1372,13 @@ export default function FleetApp({ profile }: { profile: FleetProfile }) {
             <label>
               Card Limit (SAR)
               <input
-                type="number"
-                min="0"
-                step="0.01"
+                type="text"
+                inputMode="decimal"
                 value={cardForm.card_limit}
                 onChange={(e) =>
                   setCardForm({ ...cardForm, card_limit: e.target.value })
                 }
-                placeholder="e.g. 1500"
+                placeholder="e.g. 1500 or N/A"
               />
             </label>
             <label>

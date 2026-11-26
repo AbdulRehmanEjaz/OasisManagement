@@ -121,6 +121,7 @@ export async function getFleetDb(): Promise<D1Database> {
 
 const optionalNumber = z.preprocess((v) => {
   if (v === "" || v === null || v === undefined) return null;
+  if (typeof v === "string" && /^(n\/?a|-|—|none)$/i.test(v.trim())) return null;
   const n = Number(v);
   return Number.isFinite(n) ? n : v;
 }, z.number().min(0, "Must be 0 or greater.").max(100000000).nullable());
